@@ -1,0 +1,37 @@
+name: Fetch FieldClimate data (mosca olearia)
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch: {}
+
+jobs:
+  fetch-climate-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run FieldClimate fetch script
+        env:
+          FIELDCLIMATE_PUBLIC_KEY: ${{ secrets.FIELDCLIMATE_PUBLIC_KEY }}
+          FIELDCLIMATE_PRIVATE_KEY: ${{ secrets.FIELDCLIMATE_PRIVATE_KEY }}
+          FIELDCLIMATE_STATION_ID: ${{ secrets.FIELDCLIMATE_STATION_ID }}
+        run: python fieldclimate_fetch.py
+
+      - name: Commit updated data file
+        run: |
+          git config --global user.name "fieldclimate-bot"
+          git config --global user.email "actions@github.com"
+          git add data/climate_history.json
+          git diff --staged --quiet || git commit -m "Aggiornamento dati centralina $(date -u +%Y-%m-%d)"
+          git push
