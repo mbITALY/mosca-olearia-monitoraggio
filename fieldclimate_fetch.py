@@ -50,7 +50,7 @@ def extract_climate_score(daily_data) -> dict:
     print("\nSensori disponibili in questa stazione:")
     for s in sensors:
         print(f"  code={s.get('code')} ch={s.get('ch')} "
-              f"name='{s.get('name')}' aggr={list(s.get('aggr', {}).keys())}")
+              f"name='{s.get('name')}' aggr={s.get('aggr')}")
 
     # Cerca automaticamente temperatura aria (codice 506) e umidità (codice 507 o simile)
     temp_sensor = None
