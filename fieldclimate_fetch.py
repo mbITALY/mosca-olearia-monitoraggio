@@ -160,6 +160,7 @@ if __name__ == "__main__":
         print("  print(list_stations())")
     else:
         weekly = get_last_week_data(STATION_ID)
+        import json; print(json.dumps(weekly, indent=2))
         result = extract_climate_score(weekly)
         print("\nRisultato:")
         print(result)
