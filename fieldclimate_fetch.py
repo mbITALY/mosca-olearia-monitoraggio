@@ -141,7 +141,17 @@ def save_result(result: dict):
 if __name__ == "__main__":
     print("Connessione a FieldClimate...")
     weekly = get_last_week_data(STATION_ID)
-    print(f"Risposta ricevuta. Chiavi presenti: {list(weekly.keys())[:10]}")
+   print(f"Risposta ricevuta. Chiavi presenti: {list(weekly.keys())[:10]}")
+# Stampa il primo sensore per vedere la struttura completa
+sensors = weekly.get("data", [])
+if sensors:
+    print("\nStruttura primo sensore:")
+    print(json.dumps(sensors[0], indent=2))
+    print("\nStruttura sensore temperatura (code 506):")
+    for s in sensors:
+        if s.get("code") == 506:
+            print(json.dumps(s, indent=2))
+            break
     result = extract_climate_score(weekly)
     print("\nRisultato finale:")
     print(result)
