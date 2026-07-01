@@ -17,9 +17,8 @@ STATION_ID  = os.environ.get("FIELDCLIMATE_STATION_ID", "INSERISCI_QUI")
 BASE_URL    = "https://api.fieldclimate.com/v2"
 OUTPUT_FILE = "data/climate_history.json"
 
-# Codici sensori identificati sulla centralina Baldeschi (0020F61F)
-TEMP_CODE = 506   # HC Air temperature  -> usa aggregazione "max"
-HUM_CODE  = 507   # HC Relative humidity -> usa aggregazione "avg"
+TEMP_CODE = 506
+HUM_CODE  = 507
 
 
 def _signed_headers(method: str, path: str) -> dict:
@@ -44,58 +43,56 @@ def get_last_week_data(station_id: str):
     return res.json()
 
 
-def find_sensor_values(daily_data: dict, code: int, aggr_name: str) -> list:
-    """
-    FieldClimate separa la struttura dei sensori (in 'data') dai valori numerici
-    (in 'raw' o direttamente nelle date). Cerca il canale (ch) associato al codice
-    sensore e recupera i valori giornalieri aggregati.
-    """
+def extract_climate_score(daily_data: dict) -> dict:
     sensors = daily_data.get("data", [])
-    dates   = daily_data.get("dates", [])
 
-    # Trova il canale (ch) associato al codice sensore
-    ch = None
+    # Stampa struttura completa del sensore temperatura per debug
+    print("\nStruttura sensore HC Air temperature (code 506):")
     for s in sensors:
-        if s.get("code") == code:
-            ch = s.get("ch")
+        if s.get("code") == TEMP_CODE:
+            print(json.dumps(s, indent=2))
             break
 
-    if ch is None:
-        print(f"  ⚠️  Sensore code={code} non trovato.")
-        return []
+    # Cerca i valori in tutti i possibili campi
+    tmax_list = []
+    hum_list  = []
+    for s in sensors:
+        code = s.get("code")
+        if code == TEMP_CODE:
+            # Prova i campi più comuni
+            for field in ("values", "aggr", "data", "max"):
+                val = s.get(field)
+                if isinstance(val, list) and len(val) > 0 and isinstance(val[0], (int, float)):
+                    tmax_list = val
+                    print(f"  Trovati valori temperatura in campo '{field}': {val}")
+                    break
+                elif isinstance(val, dict):
+                    for subkey in ("max", "avg"):
+                        subval = val.get(subkey, [])
+                        if isinstance(subval, list) and len(subval) > 0:
+                            tmax_list = subval
+                            print(f"  Trovati valori temperatura in '{field}.{subkey}': {subval}")
+                            break
+                    if tmax_list:
+                        break
+        if code == HUM_CODE:
+            for field in ("values", "aggr", "data", "avg"):
+                val = s.get(field)
+                if isinstance(val, list) and len(val) > 0 and isinstance(val[0], (int, float)):
+                    hum_list = val
+                    break
+                elif isinstance(val, dict):
+                    subval = val.get("avg", [])
+                    if isinstance(subval, list) and len(subval) > 0:
+                        hum_list = subval
+                        break
+                    if hum_list:
+                        break
 
-    # I valori giornalieri sono in daily_data[str(ch)][aggr_name]
-    ch_key = str(ch)
-    values = daily_data.get(ch_key, {})
-    if isinstance(values, dict):
-        result = values.get(aggr_name, [])
-    else:
-        # Alcuni firmware Pessl mettono i valori direttamente nelle date
-        result = []
-        for d in dates:
-            entry = daily_data.get(d, {})
-            ch_data = entry.get(ch_key, {})
-            val = ch_data.get(aggr_name)
-            if val is not None:
-                result.append(val)
-
-    return result
-
-
-def extract_climate_score(daily_data: dict) -> dict:
-    print("\nRecupero valori temperatura e umidità dalla centralina...")
-
-    tmax_list = find_sensor_values(daily_data, TEMP_CODE, "max")
-    hum_list  = find_sensor_values(daily_data, HUM_CODE,  "avg")
-
-    # Stampa raw per verifica
-    print(f"  Temperatura max giornaliera (ultimi 7gg): {tmax_list}")
-    print(f"  Umidità relativa media (ultimi 7gg):      {hum_list}")
+    print(f"\n  Temperatura max (ultimi 7gg): {tmax_list}")
+    print(f"  Umidità media  (ultimi 7gg): {hum_list}")
 
     if not tmax_list:
-        # Fallback: stampa l'intera risposta per debug
-        print("\n⚠️  Nessun valore di temperatura trovato. Struttura risposta:")
-        print(json.dumps({k: v for k, v in daily_data.items() if k != "data"}, indent=2)[:2000])
         return {"score": None, "ok": False, "reason": "no temperature values found"}
 
     favorable_days = sum(1 for t in tmax_list if 18 <= t <= 30)
@@ -106,11 +103,6 @@ def extract_climate_score(daily_data: dict) -> dict:
     score   = (favorable_days / len(tmax_list)) * 100 - hot_dry_days * 8
     score   = max(0, min(100, score))
     avg_max = sum(tmax_list) / len(tmax_list)
-
-    print(f"\n  Giorni favorevoli (18-30°C): {favorable_days}/{len(tmax_list)}")
-    print(f"  Giorni stress caldo-secco:   {hot_dry_days}")
-    print(f"  Tmax media settimana:        {round(avg_max, 1)}°C")
-    print(f"  Score climatico:             {round(score, 1)}/100")
 
     return {
         "score":          round(score, 1),
@@ -141,17 +133,7 @@ def save_result(result: dict):
 if __name__ == "__main__":
     print("Connessione a FieldClimate...")
     weekly = get_last_week_data(STATION_ID)
-   print(f"Risposta ricevuta. Chiavi presenti: {list(weekly.keys())[:10]}")
-# Stampa il primo sensore per vedere la struttura completa
-sensors = weekly.get("data", [])
-if sensors:
-    print("\nStruttura primo sensore:")
-    print(json.dumps(sensors[0], indent=2))
-    print("\nStruttura sensore temperatura (code 506):")
-    for s in sensors:
-        if s.get("code") == 506:
-            print(json.dumps(s, indent=2))
-            break
+    print(f"Chiavi nella risposta: {list(weekly.keys())}")
     result = extract_climate_score(weekly)
     print("\nRisultato finale:")
     print(result)
