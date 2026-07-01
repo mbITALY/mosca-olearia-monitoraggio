@@ -78,43 +78,53 @@ def get_last_week_data(station_id: str):
 
 
 def extract_climate_score(daily_data: dict) -> dict:
-    """
-    Estrae temperatura massima giornaliera e umidità dai dati FieldClimate
-    e calcola lo stesso 'climate score' usato nel calcolatore web
-    (favorevolezza per la mosca olearia: 18-30°C ottimale, stress da caldo
-    secco sopra 34°C con umidità sotto il 40%).
+    data = daily_data.get("data", [])
 
-    NOTA: i nomi esatti dei sensor_tag variano da stazione a stazione
-    (dipende dal modello/sonde installate). Usa list_stations() o ispeziona
-    la risposta di get_last_week_data() per trovare i tag corretti dei tuoi
-    sensori di temperatura aria e umidità relativa, poi aggiorna le chiavi
-    TEMP_TAG e HUM_TAG qui sotto.
-    """
-    TEMP_TAG = None  # es. "14_X_X_506" -> trovalo ispezionando daily_data['data']
-    HUM_TAG = None   # es. "16_X_X_..." per umidità relativa
+    # Stampa tutti i sensori disponibili per identificare i tag giusti
+    print("\nSensori disponibili in questa stazione:")
+    for sensor in data:
+        name = sensor.get("name", "?")
+        code = sensor.get("code", "?")
+        ch = sensor.get("ch", "?")
+        aggr_keys = list(sensor.get("aggr", {}).keys())
+        print(f"  code={code} ch={ch} name='{name}' aggregazioni={aggr_keys}")
 
-    data = daily_data.get("data", {})
+    # Cerca automaticamente temperatura aria e umidità relativa
+    temp_sensor = None
+    hum_sensor = None
+    for sensor in data:
+        code = sensor.get("code")
+        if code in (507, 506) and temp_sensor is None:
+            temp_sensor = sensor
+        if code in (507, 3) and "avg" in sensor.get("aggr", {}) and hum_sensor is None:
+            # codice 3 = umidità relativa in Pessl
+            if "humidity" in sensor.get("name", "").lower() or code == 3:
+                hum_sensor = sensor
 
-    if TEMP_TAG is None or HUM_TAG is None:
-        print("\n⚠️  Devi configurare TEMP_TAG e HUM_TAG.")
-        print("Sensori disponibili in questa stazione:\n")
-        for tag, sensor in data.items():
-            print(f"  {tag}: {sensor.get('name')} ({list(sensor.get('aggr', {}).keys())})")
-        return {"score": None, "ok": False, "reason": "sensor tags not configured"}
+    if temp_sensor is None:
+        print("\nNon ho trovato un sensore di temperatura aria. Controlla i codici sopra.")
+        return {"score": None, "ok": False, "reason": "temperature sensor not found"}
 
-    tmax_list = data[TEMP_TAG]["aggr"]["max"]
-    hum_list = data[HUM_TAG]["aggr"]["avg"]
+    tmax_list = temp_sensor.get("aggr", {}).get("max", [])
+    hum_list = hum_sensor.get("aggr", {}).get("avg", []) if hum_sensor else []
+
+    if not tmax_list:
+        return {"score": None, "ok": False, "reason": "no temperature data"}
 
     favorable_days = sum(1 for t in tmax_list if 18 <= t <= 30)
     hot_dry_days = sum(
-        1 for t, h in zip(tmax_list, hum_list) if t > 34 and h < 40
+        1 for i, t in enumerate(tmax_list)
+        if t > 34 and (hum_list[i] < 40 if i < len(hum_list) else False)
     )
 
     score = (favorable_days / len(tmax_list)) * 100
     score -= hot_dry_days * 8
     score = max(0, min(100, score))
-
     avg_tmax = sum(tmax_list) / len(tmax_list)
+
+    print(f"\nSensore temperatura usato: '{temp_sensor.get('name')}' (code={temp_sensor.get('code')})")
+    if hum_sensor:
+        print(f"Sensore umidità usato: '{hum_sensor.get('name')}' (code={hum_sensor.get('code')})")
 
     return {
         "score": round(score, 1),
@@ -123,8 +133,6 @@ def extract_climate_score(daily_data: dict) -> dict:
         "hot_dry_days": hot_dry_days,
         "ok": True,
     }
-
-
 def save_result(result: dict):
     """
     Aggiunge il risultato della settimana corrente a data/climate_history.json,
