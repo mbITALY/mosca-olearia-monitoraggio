@@ -1,0 +1,30 @@
+{
+  "_note": "Modifica qui i parametri senza toccare lo script Python.",
+
+  "clima": {
+    "finestra_score_giorni": 7,
+    "temp_favorevole_min": 18,
+    "temp_favorevole_max": 30,
+    "temp_stress_caldo": 34,
+    "umidita_stress_secco": 40,
+    "penalita_giorno_stress": 8
+  },
+
+  "dilavamento": {
+    "finestra_giorni": 2,
+    "soglia_mm_giornalieri": 2
+  },
+
+  "trattamento": {
+    "intervallo_minimo_giorni": 15,
+    "max_applicazioni_stagione": 8,
+    "vento_max_kmh": 15,
+    "pioggia_max_previsione_mm": 1,
+    "probabilita_pioggia_max_pct": 30
+  },
+
+  "trappole": {
+    "peso_femmina": 1.5,
+    "peso_maschio": 0.5
+  }
+}
