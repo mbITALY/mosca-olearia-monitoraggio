@@ -1,5 +1,19 @@
 [
   {
+    "date": "2026-07-06",
+    "score": 28.6,
+    "avg_tmax": 32.9,
+    "favorable_days": 2,
+    "hot_dry_days": 0,
+    "total_rain_mm": 43.2,
+    "rainy_days": 2,
+    "max_daily_rain_mm": 41.4,
+    "washout_window_days": 2,
+    "washout_rain_mm": 0.4,
+    "treatment_washout_risk": false,
+    "ok": true
+  },
+  {
     "date": "2026-07-02",
     "score": 14.3,
     "avg_tmax": 35.8,
