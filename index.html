@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Indice di Rischio — Mosca Olearia</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+:root{
+  --bg:#1c2517;--bg-elev:#252f1d;--bg-card:#2a3521;--text:#ece4d1;--text-dim:#a4ab90;
+  --accent:#c99a2e;--line:rgba(236,228,209,0.12);--low:#7a9a52;--med:#c99a2e;--high:#b23a2e;--radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;padding:28px 16px 80px;}
+.wrap{max-width:1060px;margin:0 auto;}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+h1{font-family:'Fraunces',serif;font-weight:600;font-size:30px;margin-bottom:4px;letter-spacing:-.01em;}
+.sub{color:var(--text-dim);font-size:13px;margin-bottom:24px;max-width:620px;line-height:1.5;}
+.card{background:var(--bg-card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;}
+.card+.card{margin-top:16px;}
+.card h2{font-family:'Fraunces',serif;font-weight:600;font-size:16px;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+label{display:block;font-size:11px;color:var(--text-dim);margin:12px 0 5px;text-transform:uppercase;letter-spacing:.04em;}
+label:first-of-type{margin-top:0;}
+input{width:100%;background:var(--bg-elev);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:8px 10px;font-family:'IBM Plex Mono',monospace;font-size:14px;}
+input:focus{outline:none;border-color:var(--accent);}
+.hint{font-size:11px;color:var(--text-dim);margin-top:3px;line-height:1.4;}
+button{width:100%;background:var(--accent);color:#1c2517;border:none;border-radius:6px;padding:10px;font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:14px;cursor:pointer;margin-top:16px;}
+button:hover{filter:brightness(1.08);}
+button.sec{background:transparent;border:1px solid var(--line);color:var(--text-dim);}
+.status-msg{font-size:11px;color:var(--text-dim);margin-top:6px;min-height:14px;}
+
+/* Zone grid */
+.zone-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px;}
+@media(max-width:900px){.zone-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:480px){.zone-grid{grid-template-columns:1fr;}}
+.zone-card{background:var(--bg-elev);border:1px solid var(--line);border-radius:8px;padding:14px;}
+.zone-name{font-family:'Fraunces',serif;font-size:13px;font-weight:600;margin-bottom:10px;text-transform:capitalize;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.zone-stat{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:11px;color:var(--text-dim);line-height:1.8;}
+.zone-stat span{font-family:'IBM Plex Mono',monospace;color:var(--text);}
+.zone-badge{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;padding:2px 7px;border-radius:4px;margin-top:6px;font-weight:600;}
+
+/* Risultato complessivo */
+.result-grid{display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:start;}
+@media(max-width:600px){.result-grid{grid-template-columns:1fr;}}
+.gauge-wrap{display:flex;flex-direction:column;align-items:center;}
+.gauge-label{font-family:'Fraunces',serif;font-size:40px;font-weight:700;margin-top:-54px;}
+.gauge-status{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin-top:2px;}
+.recommendation{margin-top:12px;padding:12px;border-radius:8px;font-size:13px;line-height:1.5;border:1px solid var(--line);}
+.bars{margin-top:12px;}
+.bar-row{margin-bottom:12px;}
+.bar-row:last-child{margin-bottom:0;}
+.bar-label{display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-bottom:4px;}
+.bar-track{height:7px;background:var(--bg-elev);border-radius:4px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:4px;transition:width .4s ease;}
+
+/* Zone ranking */
+.zone-ranking{margin-top:12px;}
+.rank-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px;}
+.rank-row:last-child{border-bottom:none;}
+.rank-num{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);width:18px;}
+.rank-name{flex:1;text-transform:capitalize;}
+.rank-score{font-family:'IBM Plex Mono',monospace;font-size:13px;}
+.rank-bar{flex:2;height:6px;background:var(--bg-elev);border-radius:3px;overflow:hidden;}
+.rank-fill{height:100%;border-radius:3px;}
+
+/* Finestra trattamento */
+.window-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
+@media(max-width:600px){.window-grid{grid-template-columns:repeat(2,1fr);}}
+.stat{background:var(--bg-elev);border:1px solid var(--line);border-radius:8px;padding:11px 13px;}
+.stat-label{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;}
+.stat-value{font-family:'IBM Plex Mono',monospace;font-size:17px;}
+.day-forecast{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;}
+.day-box{background:var(--bg-elev);border:1px solid var(--line);border-radius:8px;padding:10px;text-align:center;}
+.day-box .d{font-size:10px;color:var(--text-dim);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em;}
+.day-box .v{font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.7;}
+.flag-ok{color:var(--low);}.flag-bad{color:var(--high);}
+.verdict{padding:14px;border-radius:8px;border:1px solid var(--line);display:flex;gap:10px;align-items:flex-start;margin-top:12px;}
+.verdict-icon{font-size:20px;line-height:1;}
+.verdict-text strong{display:block;font-family:'Fraunces',serif;font-size:15px;margin-bottom:3px;}
+.verdict-text span{font-size:12.5px;color:var(--text-dim);line-height:1.5;}
+
+/* Storico */
+.history table{width:100%;border-collapse:collapse;font-size:12px;}
+.history th{text-align:left;color:var(--text-dim);font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:.04em;padding:5px 7px;border-bottom:1px solid var(--line);}
+.history td{padding:7px;border-bottom:1px solid var(--line);font-family:'IBM Plex Mono',monospace;}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;}
+.empty{color:var(--text-dim);font-size:13px;padding:12px 0;}
+.del{cursor:pointer;color:var(--text-dim);font-family:'IBM Plex Sans',sans-serif;font-size:11px;}
+.del:hover{color:var(--high);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Agriturismo Baldeschi · Olivicoltura</div>
+  <h1>Indice di rischio — Mosca olearia</h1>
+  <div class="sub">Monitoraggio su 5 zone, 3 trappole per zona. Inserisci maschi e femmine catturati per ogni zona — il MAT e la % femmine vengono calcolati automaticamente.</div>
+
+  <!-- ZONE INPUT -->
+  <div class="card">
+    <h2>🫒 Catture per zona — settimana corrente</h2>
+    <div class="zone-grid" id="zoneGrid"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;">
+      <div>
+        <label>Latitudine oliveto</label>
+        <input type="number" id="lat" value="42.93" step="0.001">
+      </div>
+      <div>
+        <label>Longitudine oliveto</label>
+        <input type="number" id="lon" value="12.10" step="0.001">
+      </div>
+    </div>
+    <button id="calcBtn">Calcola indice settimanale</button>
+    <div class="status-msg" id="statusMsg"></div>
+  </div>
+
+  <!-- RISULTATO COMPLESSIVO -->
+  <div class="card" id="resultCard" style="display:none;">
+    <h2>📊 Risultato complessivo</h2>
+    <div class="result-grid">
+      <div class="gauge-wrap">
+        <svg id="gaugeSvg" width="200" height="118" viewBox="0 0 220 130"></svg>
+        <div class="gauge-label" id="gaugeNumber">—</div>
+        <div class="gauge-status" id="gaugeStatus">—</div>
+      </div>
+      <div>
+        <div class="recommendation" id="recommendation"></div>
+        <div class="bars">
+          <div class="bar-row">
+            <div class="bar-label"><span>Zona più critica (MAT)</span><span id="trapVal"></span></div>
+            <div class="bar-track"><div class="bar-fill" id="trapBar"></div></div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label"><span>Infestazione attiva (media zone)</span><span id="infVal"></span></div>
+            <div class="bar-track"><div class="bar-fill" id="infBar"></div></div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label"><span>Favorevolezza climatica</span><span id="climVal"></span></div>
+            <div class="bar-track"><div class="bar-fill" id="climBar"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Ranking zone -->
+    <div class="zone-ranking" id="zoneRanking"></div>
+  </div>
+
+  <!-- FINESTRA TRATTAMENTO -->
+  <div class="card">
+    <h2>🌬️ Finestra di trattamento — Spintor Fly</h2>
+    <div class="hint" style="margin-bottom:14px;">Spintor Fly (max 8 applicazioni/stagione, intervallo minimo 15 giorni). Pioggia e vento rendono il trattamento inefficace o impossibile.</div>
+    <div class="window-grid">
+      <div class="stat"><div class="stat-label">Ultimo trattamento</div><div class="stat-value" id="lastTreatDate">—</div></div>
+      <div class="stat"><div class="stat-label">Giorni trascorsi</div><div class="stat-value" id="daysSince">—</div></div>
+      <div class="stat"><div class="stat-label">Trattamenti stagione</div><div class="stat-value" id="treatCount">—</div></div>
+      <div class="stat"><div class="stat-label">Limite stagionale</div><div class="stat-value">8 / anno</div></div>
+    </div>
+    <button id="checkWindowBtn">Verifica finestra meteo (prossimi 3 giorni)</button>
+    <div class="status-msg" id="windowStatusMsg"></div>
+    <div id="dayForecastBox"></div>
+    <div id="verdictBox"></div>
+    <button class="sec" id="logTreatBtn" style="margin-top:12px;">Registra trattamento effettuato oggi</button>
+  </div>
+
+  <!-- STORICO -->
+  <div class="card history" style="margin-top:16px;">
+    <h2 style="margin-bottom:12px;">📅 Storico settimanale</h2>
+    <div id="historyContent"><div class="empty">Nessuna settimana salvata ancora.</div></div>
+  </div>
+</div>
+
+<script>
+const ZONES = ['superintensivo','levate','piratello','piaggia della tonia','fattoria'];
+const TRAPS_PER_ZONE = 3;
+const STORE_KEY = 'mosca_olearia_storico_v2';
+const TREAT_KEY = 'mosca_olearia_trattamenti';
+const FIELDCLIMATE_JSON_URL = 'https://raw.githubusercontent.com/mbITALY/mosca-olearia-monitoraggio/main/data/climate_history.json';
+
+// --- Build zone input cards ---
+function buildZoneGrid(){
+  const grid = document.getElementById('zoneGrid');
+  ZONES.forEach((name,i)=>{
+    grid.innerHTML += `
+    <div class="zone-card">
+      <div class="zone-name">${name}</div>
+      <label>Maschi ♂</label>
+      <input type="number" id="m_${i}" placeholder="0" min="0">
+      <label>Femmine ♀</label>
+      <input type="number" id="f_${i}" placeholder="0" min="0">
+      <label>Infest. attiva % <span style="font-size:10px;opacity:.6">(opz.)</span></label>
+      <input type="number" id="inf_${i}" placeholder="—" step="0.1" min="0" max="100">
+      <div class="zone-stat" id="zstat_${i}">MAT: <span>—</span> · % ♀: <span>—</span></div>
+    </div>`;
+  });
+
+  // Live preview MAT and % femmine
+  ZONES.forEach((_,i)=>{
+    ['m_','f_'].forEach(prefix=>{
+      document.getElementById(prefix+i).addEventListener('input',()=>updateZoneStat(i));
+    });
+  });
+}
+
+function updateZoneStat(i){
+  const m = parseFloat(document.getElementById('m_'+i).value)||0;
+  const f = parseFloat(document.getElementById('f_'+i).value)||0;
+  const tot = m+f;
+  const mat = tot/TRAPS_PER_ZONE;
+  const pctF = tot>0 ? Math.round(f/tot*100) : 0;
+  const el = document.getElementById('zstat_'+i);
+  el.innerHTML = `MAT: <span>${mat.toFixed(1)}</span> · % ♀: <span>${pctF}%</span>`;
+}
+
+// --- Scoring ---
+function classify(score){
+  if(score<30) return {label:'BASSO',hex:'#7a9a52'};
+  if(score<55) return {label:'MEDIO',hex:'#c99a2e'};
+  return {label:'ALTO',hex:'#b23a2e'};
+}
+
+function trapScore(mat){
+  if(mat<=1) return 10*mat;
+  if(mat<=4) return 10+(mat-1)/3*30;
+  if(mat<=10) return 40+(mat-4)/6*40;
+  return Math.min(80+(mat-10)/10*20,100);
+}
+
+function infestScore(pct){
+  if(pct<=2) return pct/2*20;
+  if(pct<=5) return 20+(pct-2)/3*30;
+  if(pct<=10) return 50+(pct-5)/5*30;
+  return Math.min(80+(pct-10)/10*20,100);
+}
+
+function recommendationText(score){
+  if(score<30) return "Nessun trattamento necessario. La pressione del parassita è sotto soglia: continua il monitoraggio settimanale.";
+  if(score<55) return "Attenzione: la pressione è in crescita. Intensifica il controllo e il campionamento delle drupe. Valuta il trattamento se il trend continua.";
+  return "Soglia di intervento superata. Pianifica un trattamento a breve, verificando la finestra meteo prima di procedere.";
+}
+
+function drawGauge(score){
+  const svg=document.getElementById('gaugeSvg');
+  const cx=110,cy=110,r=90;
+  const zones=[{from:0,to:.3,color:'#7a9a52'},{from:.3,to:.55,color:'#c99a2e'},{from:.55,to:1,color:'#b23a2e'}];
+  let arcs='';
+  zones.forEach(z=>{
+    const a1=Math.PI-z.from*Math.PI,a2=Math.PI-z.to*Math.PI;
+    const x1=cx+r*Math.cos(a1),y1=cy-r*Math.sin(a1),x2=cx+r*Math.cos(a2),y2=cy-r*Math.sin(a2);
+    arcs+=`<path d="M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}" stroke="${z.color}" stroke-width="14" fill="none" stroke-linecap="round" opacity=".85"/>`;
+  });
+  const na=Math.PI-score/100*Math.PI,nx=cx+(r-18)*Math.cos(na),ny=cy-(r-18)*Math.sin(na);
+  svg.innerHTML=arcs+`<line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="#ece4d1" stroke-width="3" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="6" fill="#ece4d1"/>`;
+}
+
+// --- Climate score from FieldClimate JSON ---
+async function getClimateScore(lat,lon){
+  try{
+    // Prova proxy diversi in sequenza per superare il blocco CORS
+    const proxies=[
+      'https://api.allorigins.win/raw?url='+encodeURIComponent(FIELDCLIMATE_JSON_URL),
+      'https://corsproxy.io/?'+encodeURIComponent(FIELDCLIMATE_JSON_URL),
+      'https://proxy.cors.sh/'+FIELDCLIMATE_JSON_URL,
+      FIELDCLIMATE_JSON_URL
+    ];
+    let res=null;
+    for(const url of proxies){
+      try{const r=await fetch(url);if(r.ok){res=r;break;}}catch(e){}
+    }
+    if(!res) throw new Error('all proxies failed');
+    if(!res.ok) throw new Error('fc not available');
+    const history=await res.json();
+    if(!history||history.length===0) throw new Error('empty');
+    const latest=history[0];
+    if(latest.ok&&latest.score!==null){
+      return {score:latest.score,ok:true,avgTmax:latest.avg_tmax,source:'centralina',date:latest.date,
+        washoutRisk:latest.treatment_washout_risk||false,washoutMm:latest.washout_rain_mm||0};
+    }
+    throw new Error('invalid');
+  }catch(e){
+    try{
+      const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,relative_humidity_2m_mean&past_days=7&forecast_days=0&timezone=auto`;
+      const r2=await fetch(url);if(!r2.ok) throw new Error();
+      const d=await r2.json();
+      const tmax=d.daily.temperature_2m_max,hum=d.daily.relative_humidity_2m_mean||[];
+      let fav=0,hot=0;
+      tmax.forEach((t,i)=>{if(t>=18&&t<=30)fav++;if(t>34&&(hum[i]!==undefined?hum[i]<40:false))hot++;});
+      let sc=(fav/tmax.length)*100-hot*8;
+      return {score:Math.max(0,Math.min(100,sc)),ok:true,avgTmax:(tmax.reduce((a,b)=>a+b,0)/tmax.length).toFixed(1),source:'open-meteo'};
+    }catch(e2){return {score:50,ok:false,source:'fallback'};}
+  }
+}
+
+// --- Main calculate ---
+async function calculate(){
+  const statusMsg=document.getElementById('statusMsg');
+  const lat=document.getElementById('lat').value;
+  const lon=document.getElementById('lon').value;
+
+  // Read zone data
+  const zoneData = ZONES.map((_,i)=>{
+    const m=parseFloat(document.getElementById('m_'+i).value)||0;
+    const f=parseFloat(document.getElementById('f_'+i).value)||0;
+    const tot=m+f;
+    const inf=document.getElementById('inf_'+i).value;
+    const mat=tot/TRAPS_PER_ZONE;
+    const pctF=tot>0?f/tot:0.5;
+    const femWeight=0.5+pctF;
+    const matW=mat*femWeight;
+    return {name:ZONES[i],maschi:m,femmine:f,tot,mat,pctF,matW,infestazione:inf!==''?parseFloat(inf):null};
+  });
+
+  const hasAnyData = zoneData.some(z=>z.tot>0);
+  if(!hasAnyData){
+    statusMsg.textContent='Inserisci almeno le catture di una zona.';
+    return;
+  }
+
+  document.getElementById('calcBtn').textContent='Calcolo in corso…';
+  statusMsg.textContent='Recupero dati climatici…';
+
+  const climate=await getClimateScore(lat,lon);
+
+  // Score per zona
+  const zoneScores = zoneData.map(z=>{
+    if(z.tot===0) return {name:z.name,score:null,tScore:0,iScore:null};
+    const tScore=trapScore(z.matW);
+    const iScore=z.infestazione!==null?infestScore(z.infestazione):null;
+    let score;
+    if(iScore!==null){
+      score=0.4*tScore+0.4*iScore+0.2*climate.score;
+    }else{
+      score=0.6*tScore+0.4*climate.score;
+    }
+    return {name:z.name,score:Math.round(score),tScore,iScore,mat:z.mat,pctF:z.pctF,infestazione:z.infestazione};
+  });
+
+  // Indice complessivo: zona più critica pesa 50%, media delle altre pesa 50%
+  const activeScores=zoneScores.filter(z=>z.score!==null).map(z=>z.score);
+  const maxScore=activeScores.length>0?Math.max(...activeScores):0;
+  const avgScore=activeScores.length>0?activeScores.reduce((a,b)=>a+b,0)/activeScores.length:0;
+  const total=Math.round(0.5*maxScore+0.5*avgScore);
+
+  const cls=classify(total);
+  document.getElementById('gaugeNumber').textContent=total;
+  document.getElementById('gaugeNumber').style.color=cls.hex;
+  document.getElementById('gaugeStatus').textContent='RISCHIO '+cls.label;
+  document.getElementById('gaugeStatus').style.color=cls.hex;
+  drawGauge(total);
+
+  document.getElementById('recommendation').textContent=recommendationText(total);
+  document.getElementById('recommendation').style.borderColor=cls.hex;
+
+  // Zona più critica per la barra trappole
+  const worstZone=zoneScores.filter(z=>z.score!==null).sort((a,b)=>b.score-a.score)[0];
+  document.getElementById('trapVal').textContent=`${worstZone.name} — MAT ${worstZone.mat.toFixed(1)}`;
+  document.getElementById('trapBar').style.width=worstZone.tScore+'%';
+  document.getElementById('trapBar').style.background=classify(worstZone.tScore).hex;
+
+  const infActive=zoneScores.filter(z=>z.infestazione!==null);
+  const avgInf=infActive.length>0?infActive.reduce((a,z)=>a+z.infestazione,0)/infActive.length:null;
+  document.getElementById('infVal').textContent=avgInf!==null?avgInf.toFixed(1)+'% (media zone)':'non rilevata';
+  const infS=avgInf!==null?infestScore(avgInf):0;
+  document.getElementById('infBar').style.width=infS+'%';
+  document.getElementById('infBar').style.background=avgInf!==null?classify(infS).hex:'var(--line)';
+
+  let climLabel=climate.source==='centralina'
+    ?`centralina: ${climate.avgTmax}°C (${climate.date||'?'})${climate.washoutRisk?' ⚠️ '+climate.washoutMm+'mm':''}`
+    :climate.ok?`Open-Meteo: ${climate.avgTmax}°C (stima)`:'non disponibile';
+  document.getElementById('climVal').textContent=climLabel;
+  document.getElementById('climBar').style.width=climate.score+'%';
+  document.getElementById('climBar').style.background=classify(100-climate.score).hex;
+
+  // Zone ranking
+  const sorted=[...zoneScores].sort((a,b)=>(b.score||0)-(a.score||0));
+  document.getElementById('zoneRanking').innerHTML=`
+    <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin:16px 0 8px;">Ranking zone per rischio</div>
+    ${sorted.map((z,idx)=>{
+      if(z.score===null) return `<div class="rank-row"><span class="rank-num">${idx+1}</span><span class="rank-name">${z.name}</span><span style="color:var(--text-dim);font-size:11px;">nessun dato</span></div>`;
+      const c=classify(z.score);
+      return `<div class="rank-row">
+        <span class="rank-num">${idx+1}</span>
+        <span class="rank-name">${z.name}</span>
+        <div class="rank-bar"><div class="rank-fill" style="width:${z.score}%;background:${c.hex}"></div></div>
+        <span class="rank-score" style="color:${c.hex}">${z.score}</span>
+        <span class="zone-badge" style="background:${c.hex}22;color:${c.hex}">${c.label}</span>
+      </div>`;
+    }).join('')}`;
+
+  document.getElementById('resultCard').style.display='block';
+
+  // Update live zone stats
+  zoneData.forEach((_,i)=>updateZoneStat(i));
+
+  statusMsg.textContent=climate.source==='open-meteo'?'Dati centralina non ancora disponibili, usato Open-Meteo come stima.':'';
+  document.getElementById('calcBtn').textContent='Calcola indice settimanale';
+
+  await saveEntry({
+    date:new Date().toISOString().slice(0,10),
+    total,
+    label:cls.label,
+    climate_score:climate.score,
+    climate_source:climate.source,
+    zones:zoneScores.map(z=>({name:z.name,score:z.score,mat:z.mat?z.mat.toFixed(1):null,infestazione:z.infestazione}))
+  });
+}
+
+// --- Storage: history ---
+async function saveEntry(entry){
+  try{
+    let list=[];
+    try{const ex=await window.storage.get(STORE_KEY);if(ex&&ex.value)list=JSON.parse(ex.value);}catch(e){}
+    list.unshift(entry);list=list.slice(0,30);
+    await window.storage.set(STORE_KEY,JSON.stringify(list));
+    renderHistory(list);
+  }catch(e){console.error(e);}
+}
+
+async function loadHistory(){
+  try{const ex=await window.storage.get(STORE_KEY);if(ex&&ex.value)renderHistory(JSON.parse(ex.value));}catch(e){}
+}
+
+function renderHistory(list){
+  const c=document.getElementById('historyContent');
+  if(!list||list.length===0){c.innerHTML='<div class="empty">Nessuna settimana salvata ancora.</div>';return;}
+  let rows=list.map((e,i)=>{
+    const cls=e.label==='BASSO'?{hex:'#7a9a52'}:e.label==='MEDIO'?{hex:'#c99a2e'}:{hex:'#b23a2e'};
+    const worstZone=e.zones?[...e.zones].sort((a,b)=>(b.score||0)-(a.score||0))[0]:null;
+    return `<tr>
+      <td>${e.date}</td>
+      <td><span class="dot" style="background:${cls.hex}"></span>${e.total}</td>
+      <td>${e.label}</td>
+      <td style="color:var(--text-dim)">${worstZone&&worstZone.score!==null?worstZone.name+' ('+worstZone.score+')':'—'}</td>
+      <td style="color:var(--text-dim)">${e.climate_source||'—'}</td>
+      <td><span class="del" onclick="deleteEntry(${i})">elimina</span></td>
+    </tr>`;
+  }).join('');
+  c.innerHTML=`<table><tr><th>Data</th><th>Indice</th><th>Esito</th><th>Zona più critica</th><th>Clima</th><th></th></tr>${rows}</table>`;
+}
+
+async function deleteEntry(i){
+  try{
+    const ex=await window.storage.get(STORE_KEY);
+    let list=ex&&ex.value?JSON.parse(ex.value):[];
+    list.splice(i,1);
+    await window.storage.set(STORE_KEY,JSON.stringify(list));
+    renderHistory(list);
+  }catch(e){console.error(e);}
+}
+
+// --- Treatment window ---
+function seasonStartISO(){
+  const now=new Date();const y=now.getMonth()>=4?now.getFullYear():now.getFullYear()-1;return `${y}-05-01`;
+}
+async function loadTreatments(){
+  try{const ex=await window.storage.get(TREAT_KEY);if(ex&&ex.value)return JSON.parse(ex.value);}catch(e){}return[];
+}
+async function refreshTreatmentStats(){
+  const list=await loadTreatments();
+  const seasonStart=seasonStartISO();
+  const seasonList=list.filter(d=>d>=seasonStart);
+  const lastDate=list.length?list[0]:null;
+  document.getElementById('lastTreatDate').textContent=lastDate||'—';
+  document.getElementById('treatCount').textContent=seasonList.length;
+  if(lastDate){
+    const days=Math.floor((new Date()-new Date(lastDate))/86400000);
+    document.getElementById('daysSince').textContent=days;
+  }else{document.getElementById('daysSince').textContent='—';}
+  return{list,seasonList,lastDate};
+}
+function windDesc(kmh){
+  if(kmh<8)return{label:'calmo',ok:true};
+  if(kmh<=15)return{label:'moderato',ok:true};
+  if(kmh<=20)return{label:'sostenuto',ok:false};
+  return{label:'forte',ok:false};
+}
+async function checkTreatmentWindow(){
+  const btn=document.getElementById('checkWindowBtn');
+  const statusMsg=document.getElementById('windowStatusMsg');
+  const lat=document.getElementById('lat').value;
+  const lon=document.getElementById('lon').value;
+  btn.textContent='Verifico…';
+  statusMsg.textContent='Recupero previsioni meteo…';
+  const stats=await refreshTreatmentStats();
+  let days=[];
+  try{
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=precipitation_sum,precipitation_probability_max,windspeed_10m_max&forecast_days=3&timezone=auto`;
+    const res=await fetch(url);if(!res.ok)throw new Error();
+    const data=await res.json();
+    const dates=data.daily.time,precip=data.daily.precipitation_sum,precipProb=data.daily.precipitation_probability_max,wind=data.daily.windspeed_10m_max;
+    days=dates.map((d,i)=>{
+      const wd=windDesc(wind[i]);
+      const rainOk=precip[i]<1&&(precipProb[i]===undefined||precipProb[i]<30);
+      return{date:d,precip:precip[i],precipProb:precipProb[i],wind:wind[i],windLabel:wd.label,windOk:wd.ok,rainOk,suitable:rainOk&&wd.ok};
+    });
+  }catch(e){statusMsg.textContent='Previsioni non disponibili.';btn.textContent='Verifica finestra meteo (prossimi 3 giorni)';return;}
+
+  document.getElementById('dayForecastBox').innerHTML=`<div class="day-forecast">${days.map(d=>{
+    const dl=new Date(d.date).toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'});
+    return `<div class="day-box"><div class="d">${dl}</div><div class="v">
+      <span class="${d.rainOk?'flag-ok':'flag-bad'}">☔ ${d.precip?.toFixed(1)??'?'}mm</span><br>
+      <span class="${d.windOk?'flag-ok':'flag-bad'}">💨 ${d.wind?.toFixed(0)??'?'} km/h (${d.windLabel})</span>
+    </div></div>`;
+  }).join('')}</div>`;
+
+  const daysSince=document.getElementById('daysSince').textContent;
+  const ds=daysSince==='—'?Infinity:parseInt(daysSince);
+  const seasonCount=stats.seasonList.length;
+  const bestDay=days.find(d=>d.suitable)||null;
+  let blocked=[];
+  if(seasonCount>=8)blocked.push('limite di 8 applicazioni stagionali raggiunto');
+  if(ds<15)blocked.push(`solo ${ds} giorni dall'ultimo trattamento (minimo 15)`);
+  if(!bestDay)blocked.push('nessun giorno adatto nei prossimi 3 (pioggia o vento)');
+
+  let icon,title,text,borderColor;
+  if(blocked.length===0){
+    icon='✅';title='Via libera per trattare';borderColor='var(--low)';
+    text=bestDay?`${new Date(bestDay.date).toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'})}: pioggia assente, vento ${bestDay.windLabel}. Applica a macchie su fila alterna, parte alta della chioma.`:'Condizioni adatte.';
+  }else{
+    icon='⛔';title='Non ancora pronto per trattare';borderColor='var(--high)';
+    text='Motivo: '+blocked.join('; ')+'.';
+  }
+  document.getElementById('verdictBox').innerHTML=`<div class="verdict" style="border-color:${borderColor}">
+    <div class="verdict-icon">${icon}</div>
+    <div class="verdict-text"><strong>${title}</strong><span>${text}</span></div>
+  </div>`;
+  statusMsg.textContent='';
+  btn.textContent='Verifica finestra meteo (prossimi 3 giorni)';
+}
+async function logTreatment(){
+  const list=await loadTreatments();
+  const today=new Date().toISOString().slice(0,10);
+  list.unshift(today);
+  await window.storage.set(TREAT_KEY,JSON.stringify(list));
+  await refreshTreatmentStats();
+  document.getElementById('windowStatusMsg').textContent=`Trattamento registrato per il ${today}.`;
+}
+
+// --- Init ---
+buildZoneGrid();
+loadHistory();
+refreshTreatmentStats();
+document.getElementById('calcBtn').addEventListener('click',calculate);
+document.getElementById('checkWindowBtn').addEventListener('click',checkTreatmentWindow);
+document.getElementById('logTreatBtn').addEventListener('click',logTreatment);
+</script>
+</body>
+</html>
