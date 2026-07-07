@@ -205,6 +205,16 @@ button:disabled{opacity:.5;cursor:not-allowed;}
     <button class="sec" id="logTreatBtn">Registra trattamento effettuato oggi</button>
   </div>
 
+  <!-- IMPOSTAZIONI -->
+  <div class="card" style="margin-bottom:14px;">
+    <h2>⚙️ Impostazioni</h2>
+    <label>Chiave API Anthropic (per il report settimanale AI)</label>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off">
+    <div class="hint">La chiave viene salvata solo nel tuo browser, non nel codice. Ottienila su console.anthropic.com → API Keys.</div>
+    <button id="saveApiKeyBtn" style="margin-top:10px;">Salva chiave API</button>
+    <div class="status-msg" id="apiKeyMsg"></div>
+  </div>
+
   <!-- STORICO -->
   <div class="card history">
     <h2 style="margin-bottom:10px;">📅 Storico settimanale</h2>
@@ -227,9 +237,9 @@ const FC_URL = 'https://raw.githubusercontent.com/mbITALY/mosca-olearia-monitora
 const PHENO_STAGES = [
   {id:'allegagione', icon:'🌸', name:'Allegagione', period:'Giugno', coeff:0.3,
    desc:'Drupa appena formata, molto piccola e dura. La mosca non riesce a ovideporre. Rischio praticamente nullo indipendentemente dalle catture.'},
-  {id:'ingrossamento', icon:'🟢', name:'Ingrossamento drupa', period:'Giu–Lug', coeff:0.5,
+  {id:'ingrossamento', icon:'🟢', name:'Ingrossamento drupa', period:'Giu–Lug', coeff:0.7,
    desc:'Il nocciolo non è ancora indurito. La drupa inizia ad essere suscettibile ma la mosca preferisce attendere la maturazione. Rischio basso.'},
-  {id:'nocciolo', icon:'🫒', name:'Nocciolo indurito', period:'Lug–Ago', coeff:0.7,
+  {id:'nocciolo', icon:'🫒', name:'Nocciolo indurito', period:'Lug–Ago', coeff:1.0,
    desc:'Fase critica iniziale: il nocciolo è indurito e la drupa diventa progressivamente appetibile. Iniziare il monitoraggio intensivo.'},
   {id:'pre_invaiatura', icon:'🟡', name:'Pre-invaiatura', period:'Ago–Set', coeff:1.0,
    desc:'Vulnerabilità standard — fase di riferimento per le soglie di intervento. La mosca è molto attiva e la drupa è appetibile.'},
@@ -384,7 +394,7 @@ async function calculate(){
     const inf=document.getElementById('inf_'+i).value;
     const mat=tot/TRAPS;
     const pctF=tot>0?f/tot:0.5;
-    const matW=mat*(0.5+pctF);
+    const matW=mat*(0.8+0.7*pctF); // maschi ×0.8, femmine ×1.5 (Flypack trappola mista)
     return{name:ZONES[i],maschi:m,femmine:f,tot,mat,pctF,matW,infestazione:inf!==''?parseFloat(inf):null};
   });
 
@@ -531,9 +541,16 @@ Produci un report strutturato con:
 Sii conciso, diretto e pratico. Tono professionale ma accessibile.`;
 
   try{
+    const apiKey=localStorage.getItem('anthropic_api_key')||'';
+    if(!apiKey){
+      box.className='report-box';
+      box.textContent='⚠️ Chiave API Anthropic non configurata. Vai nella sezione Impostazioni in fondo alla pagina e inserisci la tua chiave API (console.anthropic.com → API Keys).';
+      btn.disabled=false;btn.textContent='Genera report settimanale con AI';
+      return;
+    }
     const response=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},
       body:JSON.stringify({
         model:'claude-sonnet-4-6',
         max_tokens:1000,
@@ -674,6 +691,19 @@ async function logTreatment(){
   document.getElementById('windowStatusMsg').textContent=`Trattamento registrato per il ${today}.`;
 }
 
+// --- API Key ---
+function saveApiKey(){
+  const key=document.getElementById('apiKeyInput').value.trim();
+  if(!key.startsWith('sk-ant-')){
+    document.getElementById('apiKeyMsg').textContent='La chiave deve iniziare con sk-ant-';
+    return;
+  }
+  localStorage.setItem('anthropic_api_key',key);
+  document.getElementById('apiKeyMsg').textContent='Chiave salvata ✓';
+  document.getElementById('apiKeyInput').value='';
+  setTimeout(()=>document.getElementById('apiKeyMsg').textContent='',3000);
+}
+
 // --- Init ---
 buildPhenoGrid();
 buildZoneGrid();
@@ -686,6 +716,11 @@ document.getElementById('logTreatBtn').addEventListener('click',logTreatment);
 document.getElementById('exportBtn').addEventListener('click',exportHistory);
 document.getElementById('importBtn').addEventListener('click',()=>document.getElementById('importFile').click());
 document.getElementById('importFile').addEventListener('change',importHistory);
+document.getElementById('saveApiKeyBtn').addEventListener('click',saveApiKey);
+// Show if key already saved
+if(localStorage.getItem('anthropic_api_key')){
+  document.getElementById('apiKeyMsg').textContent='Chiave API già configurata ✓';
+}
 </script>
 </body>
 </html>
