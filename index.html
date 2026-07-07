@@ -254,18 +254,7 @@ function drawGauge(score){
 // --- Climate score from FieldClimate JSON ---
 async function getClimateScore(lat,lon){
   try{
-    // Prova proxy diversi in sequenza per superare il blocco CORS
-    const proxies=[
-      'https://api.allorigins.win/raw?url='+encodeURIComponent(FIELDCLIMATE_JSON_URL),
-      'https://corsproxy.io/?'+encodeURIComponent(FIELDCLIMATE_JSON_URL),
-      'https://proxy.cors.sh/'+FIELDCLIMATE_JSON_URL,
-      FIELDCLIMATE_JSON_URL
-    ];
-    let res=null;
-    for(const url of proxies){
-      try{const r=await fetch(url);if(r.ok){res=r;break;}}catch(e){}
-    }
-    if(!res) throw new Error('all proxies failed');
+    const res=await fetch(FIELDCLIMATE_JSON_URL);
     if(!res.ok) throw new Error('fc not available');
     const history=await res.json();
     if(!history||history.length===0) throw new Error('empty');
