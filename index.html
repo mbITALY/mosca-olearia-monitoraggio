@@ -139,6 +139,25 @@ button:disabled{opacity:.5;cursor:not-allowed;}
       <div><label>Latitudine</label><input type="number" id="lat" value="42.93" step="0.001"></div>
       <div><label>Longitudine</label><input type="number" id="lon" value="12.10" step="0.001"></div>
     </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+      <div>
+        <label>% Invaiatura stimata <span style="opacity:.6;font-size:9px">(opz.)</span></label>
+        <input type="number" id="invaiatura_pct" placeholder="es. 20" min="0" max="100">
+        <div class="hint">Stima visiva della percentuale di drupe invaiate nell'oliveto.</div>
+      </div>
+      <div>
+        <label>Trattamento effettuato questa settimana?</label>
+        <select id="trattamento_fatto">
+          <option value="">— nessun trattamento —</option>
+          <option value="si">Sì — trattamento effettuato</option>
+          <option value="programmato">Programmato per i prossimi giorni</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:10px;">
+      <label>Note di campo <span style="opacity:.6;font-size:9px">(opz.)</span></label>
+      <input type="text" id="note_campo" placeholder="es. pioggia intensa martedì, larve vive in Piratello, attrattivo rinnovato…">
+    </div>
     <button id="calcBtn">Calcola indice settimanale</button>
     <div class="status-msg" id="statusMsg"></div>
   </div>
@@ -283,6 +302,8 @@ function buildZoneGrid(){
       <label>Femmine ♀</label><input type="number" id="f_${i}" placeholder="0" min="0">
       <label>Infest. % <span style="opacity:.6;font-size:9px">(opz.)</span></label>
       <input type="number" id="inf_${i}" placeholder="—" step="0.1" min="0" max="100">
+      <label>Drupe campionate <span style="opacity:.6;font-size:9px">(opz.)</span></label>
+      <input type="number" id="drupe_${i}" placeholder="—" min="0">
       <div class="zone-stat" id="zstat_${i}">MAT: <span>—</span> · ♀: <span>—</span></div>`;
     grid.appendChild(div);
     ['m_','f_'].forEach(p=>document.getElementById(p+i).addEventListener('input',()=>updateZoneStat(i)));
@@ -481,6 +502,13 @@ async function calculate(){
   statusMsg.textContent=climate.source==='open-meteo'?'Centralina non raggiunta, usato Open-Meteo come stima.':'';
   document.getElementById('calcBtn').textContent='Calcola indice settimanale';
 
+  // Campi aggiuntivi
+  const invaiaturaPct=document.getElementById('invaiatura_pct').value;
+  const trattamentoFatto=document.getElementById('trattamento_fatto').value;
+  const noteCampo=document.getElementById('note_campo').value.trim();
+  const treatList=loadTreatments();
+  const nAppl=treatList.filter(d=>d>=seasonStart()).length;
+
   await saveEntry({
     date:new Date().toISOString().slice(0,10),
     total,label:cls.label,
@@ -488,8 +516,18 @@ async function calculate(){
     climate_score:climate.score,climate_source:climate.source,
     avg_tmax:climate.avgTmax,favorable_days:climate.favorableDays,
     total_rain_mm:climate.totalRain,
-    zones:zoneScores.map(z=>({name:z.name,score:z.score,mat:z.mat?+z.mat.toFixed(1):null,
-      pctF:z.pctF?+z.pctF.toFixed(2):null,infestazione:z.infestazione}))
+    washout_risk:climate.washoutRisk||false,
+    invaiatura_pct:invaiaturaPct!==''?parseFloat(invaiaturaPct):null,
+    trattamento:trattamentoFatto||null,
+    n_applicazione_stagionale:trattamentoFatto==='si'?nAppl+1:null,
+    note:noteCampo||null,
+    zones:zoneScores.map((z,i)=>({
+      name:z.name,score:z.score,
+      mat:z.mat?+z.mat.toFixed(1):null,
+      pctF:z.pctF!==null?+z.pctF.toFixed(2):null,
+      infestazione:z.infestazione,
+      drupe_campionate:document.getElementById('drupe_'+i).value?parseInt(document.getElementById('drupe_'+i).value):null
+    }))
   });
 }
 
@@ -590,17 +628,22 @@ function renderHistory(list){
     const hex=e.label==='BASSO'?'#7a9a52':e.label==='MEDIO'?'#c99a2e':'#b23a2e';
     const worst=e.zones?[...e.zones].sort((a,b)=>(b.score||0)-(a.score||0))[0]:null;
     const pheno=PHENO_STAGES.find(s=>s.id===e.pheno);
+    const trattLabel=e.trattamento==='si'
+      ?`<span style="color:var(--accent)">✓ Trattato${e.n_applicazione_stagionale?' ('+e.n_applicazione_stagionale+'ª)':''}</span>`
+      :e.trattamento==='programmato'?`<span style="color:var(--text-dim)">Programmato</span>`:'—';
     return`<tr>
       <td>${e.date}</td>
-      <td>${pheno?pheno.icon+' '+pheno.name:'—'}</td>
+      <td>${pheno?pheno.icon+' '+pheno.name:'—'}${e.invaiatura_pct!=null?' · '+e.invaiatura_pct+'%':''}</td>
       <td><span class="dot" style="background:${hex}"></span>${e.total}</td>
       <td style="color:${hex}">${e.label}</td>
       <td style="color:var(--text-dim)">${worst&&worst.score!==null?worst.name+' ('+worst.score+')':'—'}</td>
-      <td style="color:var(--text-dim)">${e.avg_tmax||'—'}°C · ${e.favorable_days??'—'}/7gg</td>
+      <td style="color:var(--text-dim)">${e.avg_tmax||'—'}°C · ${e.favorable_days??'—'}/7${e.washout_risk?' ⚠️':''}</td>
+      <td>${trattLabel}</td>
+      <td style="color:var(--text-dim);font-size:10px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${e.note||''}">${e.note||'—'}</td>
       <td><span class="del" onclick="deleteEntry(${i})">✕</span></td>
     </tr>`;
   }).join('');
-  c.innerHTML=`<table><tr><th>Data</th><th>Fenologia</th><th>Indice</th><th>Esito</th><th>Zona critica</th><th>Clima</th><th></th></tr>${rows}</table>`;
+  c.innerHTML=`<table><tr><th>Data</th><th>Fenologia</th><th>Indice</th><th>Esito</th><th>Zona critica</th><th>Clima</th><th>Trattamento</th><th>Note</th><th></th></tr>${rows}</table>`;
 }
 function exportHistory(){
   const data=JSON.stringify(loadHistory(),null,2);
