@@ -10,6 +10,17 @@
     "penalita_giorno_stress": 8
   },
 
+  "soglie_termiche": {
+    "_note": "Soglie scientifiche per mortalità uova/larve Bactrocera oleae",
+    "s35_ore_min": 6,
+    "s35_giorni_cons": 3,
+    "s37_ore_min": 4,
+    "s37_giorni_cons": 2,
+    "s40_ore_min": 2,
+    "s40_giorni_cons": 1,
+    "gdd_base": 10
+  },
+
   "dilavamento": {
     "finestra_giorni": 2,
     "soglia_mm_giornalieri": 2
@@ -25,6 +36,6 @@
 
   "trappole": {
     "peso_femmina": 1.5,
-    "peso_maschio": 0.5
+    "peso_maschio": 0.8
   }
 }
