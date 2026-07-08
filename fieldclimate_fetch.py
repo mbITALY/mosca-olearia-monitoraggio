@@ -198,8 +198,10 @@ def compute_hourly_thermal_stats(hourly_data: dict, cfg: dict) -> dict:
     gdd_tot = round(sum(daily_gdd), 1)
 
     # Score favorevolezza adulti basato su dati orari
+    # Formula: % del giorno trascorso nel range ottimale (18-30°C)
     avg_hours_optimal = sum(daily_h_optimal) / len(daily_h_optimal) if daily_h_optimal else 0
-    hourly_adult_score = round(min(100, avg_hours_optimal / 24 * 100 * 1.5), 1)
+    hourly_adult_score = round(avg_hours_optimal / 24 * 100, 1)
+    # Penalità per ore sopra 37°C (stress adulti)
     avg_h37 = sum(daily_h37) / len(daily_h37) if daily_h37 else 0
     hourly_adult_score = round(max(0, hourly_adult_score - avg_h37 * 3), 1)
 
