@@ -392,7 +392,17 @@ async function getClimateScore(){
       washoutRisk:latest.treatment_washout_risk||false,
       washoutMm:latest.washout_rain_mm||0,
       avgTmin:latest.avg_tmin||null,
-      coldNights:latest.cold_nights||null
+      coldNights:latest.cold_nights||null,
+      avgHoursOptimal:latest.avg_hours_optimal||null,
+      thermalSuppression:latest.thermal_suppression||0,
+      gddWeekly:latest.gdd_weekly||null,
+      dailyHoursAbove35:latest.daily_hours_above_35||null,
+      dailyHoursAbove37:latest.daily_hours_above_37||null,
+      dailyHoursAbove40:latest.daily_hours_above_40||null,
+      dailyHoursOptimal:latest.daily_hours_optimal||null,
+      consDays35:latest.cons_days_above_35||0,
+      consDays37:latest.cons_days_above_37||0,
+      consDays40:latest.cons_days_above_40||0,
     };
   }catch(e){
     const lat=document.getElementById('lat').value;
@@ -414,27 +424,57 @@ async function getClimateScore(){
   }
 }
 
+function thermalBar(hours){
+  if(!hours||!hours.length) return '—';
+  return hours.map(h=>{
+    const col=h>=6?'#b23a2e':h>=3?'#c99a2e':'#7a9a52';
+    const op=0.2+Math.min(h/8,1)*0.8;
+    return `<span title="${h}h" style="display:inline-block;width:18px;height:14px;background:${col};opacity:${op.toFixed(2)};border-radius:2px;margin:1px;vertical-align:middle;"></span>`;
+  }).join('');
+}
+
 function renderClimateDetail(climate){
   if(!climate.ok){document.getElementById('climateDetail').innerHTML='';return;}
   const srcLabel=climate.source==='centralina'?`Centralina Pessl · ${climate.date}`:'Open-Meteo (stima)';
-  const washWarn=climate.washoutRisk?`<div style="color:var(--high);margin-top:6px;">⚠️ Negli ultimi 2 giorni sono caduti ${climate.washoutMm}mm — un trattamento recente potrebbe essere stato dilavato.</div>`:'';
+  const washWarn=climate.washoutRisk?`<div style="color:var(--high);margin-top:8px;padding:8px;background:#b23a2e18;border-radius:6px;">⚠️ Negli ultimi 2 giorni sono caduti ${climate.washoutMm}mm — un trattamento recente potrebbe essere stato dilavato.</div>`:'';
+  const suppColor=climate.thermalSuppression>60?'#7a9a52':climate.thermalSuppression>30?'#c99a2e':'#a4ab90';
+  const suppLabel=climate.thermalSuppression>60?'Alta — caldo letale per uova/larve':climate.thermalSuppression>30?'Moderata':climate.thermalSuppression>0?'Bassa':'Nessuna — temperature non letali';
+  const hasHourly=climate.avgHoursOptimal!=null;
   document.getElementById('climateDetail').innerHTML=`
     <h3>🌡️ Dati climatici settimanali — ${srcLabel}</h3>
-    <div class="clim-grid">
+    <div class="clim-grid" style="grid-template-columns:repeat(3,1fr);">
       <div class="clim-stat"><span class="clim-val">${climate.avgTmax}°C</span><span class="clim-lbl">Tmax media</span></div>
       <div class="clim-stat"><span class="clim-val">${climate.avgTmin!=null?climate.avgTmin+'°C':'—'}</span><span class="clim-lbl">Tmin media</span></div>
-      <div class="clim-stat"><span class="clim-val">${climate.favorableDays}/7</span><span class="clim-lbl">Giorni favorevoli mosca (18-30°C)</span></div>
       <div class="clim-stat"><span class="clim-val">${climate.totalRain??'—'}mm</span><span class="clim-lbl">Pioggia totale</span></div>
-      <div class="clim-stat"><span class="clim-val">${climate.rainyDays??'—'}</span><span class="clim-lbl">Giorni con pioggia ≥1mm</span></div>
-      <div class="clim-stat"><span class="clim-val">${climate.coldNights!=null?climate.coldNights:'-'}</span><span class="clim-lbl">Notti fredde <10°C</span></div>
     </div>
-    <div class="clim-note">
-      <strong>Come viene calcolato lo score climatico:</strong> ogni giorno con Tmax tra 18°C e 30°C è considerato favorevole alla mosca olearia (+${Math.round(100/7)}pt). Giorni con Tmax sopra 34°C e umidità sotto il 40% indicano stress da caldo secco che deprime l'attività della mosca (-8pt). Lo score finale (0–100) pesa il 20% dell'indice complessivo quando è disponibile anche il dato di infestazione attiva.
+    ${hasHourly?`
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);">
+      <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Analisi oraria — Centralina Pessl</div>
+      <div class="clim-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px;">
+        <div class="clim-stat"><span class="clim-val" style="color:#7a9a52">${climate.avgHoursOptimal}h</span><span class="clim-lbl">Ore/giorno ottimali (18-30°C)</span></div>
+        <div class="clim-stat"><span class="clim-val" style="color:${suppColor}">${climate.thermalSuppression}/100</span><span class="clim-lbl">Soppressione termica uova/larve</span></div>
+        <div class="clim-stat"><span class="clim-val">${climate.gddWeekly??'—'}</span><span class="clim-lbl">Gradi giorno (base 10°C)</span></div>
+      </div>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px;">Ore/giorno sopra soglie critiche — 7 giorni (verde=bassa, arancio=media, rosso=letale):</div>
+      <div style="display:grid;grid-template-columns:70px 1fr 90px;gap:6px;align-items:center;font-size:11px;margin-bottom:4px;">
+        <span style="color:var(--text-dim);">≥ 35°C</span><span>${thermalBar(climate.dailyHoursAbove35)}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">${climate.consDays35} gg cons.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:70px 1fr 90px;gap:6px;align-items:center;font-size:11px;margin-bottom:4px;">
+        <span style="color:var(--text-dim);">≥ 37°C</span><span>${thermalBar(climate.dailyHoursAbove37)}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">${climate.consDays37} gg cons.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:70px 1fr 90px;gap:6px;align-items:center;font-size:11px;">
+        <span style="color:var(--text-dim);">≥ 40°C</span><span>${thermalBar(climate.dailyHoursAbove40)}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">${climate.consDays40} gg cons.</span>
+      </div>
+      <div style="margin-top:10px;padding:10px;background:${suppColor}18;border-radius:6px;font-size:12px;line-height:1.5;">
+        <strong>Soppressione termica:</strong> ${suppLabel}. ${climate.thermalSuppression<20?'Uova e larve deposte questa settimana sopravvivono normalmente — la pressione in campo corrisponde alle catture.':climate.thermalSuppression<50?'Mortalità parziale di uova e larve di prima età.':'Stress termico elevato: alta mortalità di uova e larve. Il rischio reale è inferiore alle catture in trappola.'}
+      </div>
+    </div>`:''}
+    <div class="clim-note" style="margin-top:12px;">
+      <strong>Score favorevolezza adulti (${hasHourly?'dati orari':'Tmax giornaliera'}):</strong>
+      ${hasHourly?`Percentuale del giorno nel range ottimale 18-30°C (media ${climate.avgHoursOptimal}h/24h → ${climate.score}/100).`:`Giorni con Tmax 18-30°C su 7 (${climate.favorableDays}/7 → ${climate.score}/100).`}
       ${washWarn}
-    </div>`;
-}
+    </div>`;}
 
-// --- Main calculate ---
 async function calculate(){
   const statusMsg=document.getElementById('statusMsg');
   const zoneData=ZONES.map((_,i)=>{
@@ -500,9 +540,13 @@ async function calculate(){
   document.getElementById('infBar').style.width=infS+'%';
   document.getElementById('infBar').style.background=avgInf!==null?classify(infS).hex:'var(--line)';
 
-  document.getElementById('climVal').textContent=climate.source==='centralina'?
-    `${climate.avgTmax}°C · ${climate.favorableDays}/7 giorni favorevoli (${climate.date})`:
-    climate.ok?`${climate.avgTmax}°C · ${climate.favorableDays}/7 gg (Open-Meteo)`:'non disponibile';
+  const climSrc = climate.source==='centralina';
+  const climHourly = climate.avgHoursOptimal!=null;
+  document.getElementById('climVal').textContent=
+    climate.ok?(climHourly?
+      `${climate.score}/100 · ${climate.avgHoursOptimal}h/giorno ottimali (centralina ${climate.date})`:
+      `${climate.score}/100 · ${climate.favorableDays}/7 gg favorevoli (${climSrc?'centralina':'Open-Meteo'})`):
+    'non disponibile';
   document.getElementById('climBar').style.width=climate.score+'%';
   document.getElementById('climBar').style.background=classify(100-climate.score).hex;
 
@@ -547,7 +591,7 @@ async function calculate(){
     total,label:cls.label,
     pheno:selectedPheno.id,pheno_coeff:selectedPheno.coeff,
     climate_score:climate.score,climate_source:climate.source,
-    avg_tmax:climate.avgTmax,avg_tmin:climate.avgTmin||null,cold_nights:climate.coldNights||null,favorable_days:climate.favorableDays,
+    avg_tmax:climate.avgTmax,avg_tmin:climate.avgTmin||null,cold_nights:climate.coldNights||null,favorable_days:climate.favorableDays,thermal_suppression:climate.thermalSuppression||0,avg_hours_optimal:climate.avgHoursOptimal||null,gdd_weekly:climate.gddWeekly||null,
     total_rain_mm:climate.totalRain,
     washout_risk:climate.washoutRisk||false,
     invaiatura_pct:invaiaturaPct!==''?parseFloat(invaiaturaPct):null,
