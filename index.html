@@ -221,7 +221,32 @@ button:disabled{opacity:.5;cursor:not-allowed;}
     <div class="status-msg" id="windowStatusMsg"></div>
     <div id="dayForecastBox"></div>
     <div id="verdictBox"></div>
-    <button class="sec" id="logTreatBtn">Registra trattamento effettuato oggi</button>
+    <div id="treatFormBox" style="display:none;background:var(--bg-elev);border:1px solid var(--line);border-radius:8px;padding:14px;margin-top:10px;">
+      <div style="font-family:'Fraunces',serif;font-size:14px;margin-bottom:12px;">Registra trattamento</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label>Data</label><input type="date" id="treat_date"></div>
+        <div><label>Ora applicazione</label><input type="time" id="treat_time" placeholder="es. 07:30"></div>
+        <div><label>Temperatura al momento (°C)</label><input type="number" id="treat_temp" placeholder="es. 22" step="0.5"></div>
+        <div><label>Vento stimato</label>
+          <select id="treat_wind">
+            <option value="calmo">Calmo (&lt;8 km/h)</option>
+            <option value="moderato">Moderato (8-15 km/h)</option>
+            <option value="sostenuto">Sostenuto (15-20 km/h)</option>
+          </select>
+        </div>
+      </div>
+      <label style="margin-top:10px;">Zone trattate</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;" id="treat_zones">
+        ${ZONES.map((z,i)=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;text-transform:capitalize;color:var(--text);"><input type="checkbox" id="tz_${i}" style="width:auto;"> ${z}</label>`).join('')}
+      </div>
+      <label style="margin-top:10px;">Note applicazione</label>
+      <input type="text" id="treat_notes" placeholder="es. applicato mattina presto, chioma asciutta…">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+        <button id="saveTreatBtn">Salva trattamento</button>
+        <button class="sec" id="cancelTreatBtn">Annulla</button>
+      </div>
+    </div>
+    <button class="sec" id="logTreatBtn" style="margin-top:10px;">+ Registra trattamento effettuato</button>
   </div>
 
   <!-- IMPOSTAZIONI -->
@@ -365,7 +390,9 @@ async function getClimateScore(){
       hotDryDays:latest.hot_dry_days,totalRain:latest.total_rain_mm,
       rainyDays:latest.rainy_days,maxDailyRain:latest.max_daily_rain_mm,
       washoutRisk:latest.treatment_washout_risk||false,
-      washoutMm:latest.washout_rain_mm||0
+      washoutMm:latest.washout_rain_mm||0,
+      avgTmin:latest.avg_tmin||null,
+      coldNights:latest.cold_nights||null
     };
   }catch(e){
     const lat=document.getElementById('lat').value;
@@ -395,9 +422,11 @@ function renderClimateDetail(climate){
     <h3>🌡️ Dati climatici settimanali — ${srcLabel}</h3>
     <div class="clim-grid">
       <div class="clim-stat"><span class="clim-val">${climate.avgTmax}°C</span><span class="clim-lbl">Tmax media</span></div>
+      <div class="clim-stat"><span class="clim-val">${climate.avgTmin!=null?climate.avgTmin+'°C':'—'}</span><span class="clim-lbl">Tmin media</span></div>
       <div class="clim-stat"><span class="clim-val">${climate.favorableDays}/7</span><span class="clim-lbl">Giorni favorevoli mosca (18-30°C)</span></div>
       <div class="clim-stat"><span class="clim-val">${climate.totalRain??'—'}mm</span><span class="clim-lbl">Pioggia totale</span></div>
       <div class="clim-stat"><span class="clim-val">${climate.rainyDays??'—'}</span><span class="clim-lbl">Giorni con pioggia ≥1mm</span></div>
+      <div class="clim-stat"><span class="clim-val">${climate.coldNights!=null?climate.coldNights:'-'}</span><span class="clim-lbl">Notti fredde <10°C</span></div>
     </div>
     <div class="clim-note">
       <strong>Come viene calcolato lo score climatico:</strong> ogni giorno con Tmax tra 18°C e 30°C è considerato favorevole alla mosca olearia (+${Math.round(100/7)}pt). Giorni con Tmax sopra 34°C e umidità sotto il 40% indicano stress da caldo secco che deprime l'attività della mosca (-8pt). Lo score finale (0–100) pesa il 20% dell'indice complessivo quando è disponibile anche il dato di infestazione attiva.
@@ -509,12 +538,16 @@ async function calculate(){
   const treatList=loadTreatments();
   const nAppl=treatList.filter(d=>d>=seasonStart()).length;
 
+  const now=new Date();
+  const annoCampagna=now.getMonth()>=8?now.getFullYear():now.getFullYear()-1; // campagna: sett-sett
+
   await saveEntry({
-    date:new Date().toISOString().slice(0,10),
+    date:now.toISOString().slice(0,10),
+    anno_campagna:annoCampagna,
     total,label:cls.label,
     pheno:selectedPheno.id,pheno_coeff:selectedPheno.coeff,
     climate_score:climate.score,climate_source:climate.source,
-    avg_tmax:climate.avgTmax,favorable_days:climate.favorableDays,
+    avg_tmax:climate.avgTmax,avg_tmin:climate.avgTmin||null,cold_nights:climate.coldNights||null,favorable_days:climate.favorableDays,
     total_rain_mm:climate.totalRain,
     washout_risk:climate.washoutRisk||false,
     invaiatura_pct:invaiaturaPct!==''?parseFloat(invaiaturaPct):null,
@@ -523,6 +556,8 @@ async function calculate(){
     note:noteCampo||null,
     zones:zoneScores.map((z,i)=>({
       name:z.name,score:z.score,
+      maschi:parseInt(document.getElementById('m_'+i).value)||0,
+      femmine:parseInt(document.getElementById('f_'+i).value)||0,
       mat:z.mat?+z.mat.toFixed(1):null,
       pctF:z.pctF!==null?+z.pctF.toFixed(2):null,
       infestazione:z.infestazione,
@@ -725,13 +760,43 @@ async function checkWindow(){
   </div>`;
   sm.textContent='';btn.textContent='Verifica finestra meteo (prossimi 3 giorni)';
 }
-async function logTreatment(){
+function showTreatForm(){
+  document.getElementById('treat_date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('treat_time').value=new Date().toTimeString().slice(0,5);
+  document.getElementById('treatFormBox').style.display='block';
+  document.getElementById('logTreatBtn').style.display='none';
+}
+function hideTreatForm(){
+  document.getElementById('treatFormBox').style.display='none';
+  document.getElementById('logTreatBtn').style.display='block';
+}
+async function saveTreatment(){
+  const date=document.getElementById('treat_date').value;
+  const time=document.getElementById('treat_time').value;
+  const temp=document.getElementById('treat_temp').value;
+  const wind=document.getElementById('treat_wind').value;
+  const notes=document.getElementById('treat_notes').value.trim();
+  const zonesTreated=ZONES.filter((_,i)=>document.getElementById('tz_'+i)?.checked);
+
+  // Save to treatments list (date string for interval calculation)
   const list=loadTreatments();
-  const today=new Date().toISOString().slice(0,10);
-  list.unshift(today);
+  list.unshift(date);
   localStorage.setItem(TREAT_KEY,JSON.stringify(list));
+
+  // Save full treatment record
+  const treatRecords=JSON.parse(localStorage.getItem('mosca_treat_records')||'[]');
+  const nAppl=list.filter(d=>d>=seasonStart()).length;
+  treatRecords.unshift({
+    date,time,temp:temp?parseFloat(temp):null,
+    wind,zones:zonesTreated,notes:notes||null,
+    n_applicazione_stagionale:nAppl
+  });
+  localStorage.setItem('mosca_treat_records',JSON.stringify(treatRecords.slice(0,30)));
+
   refreshTreatStats();
-  document.getElementById('windowStatusMsg').textContent=`Trattamento registrato per il ${today}.`;
+  hideTreatForm();
+  document.getElementById('windowStatusMsg').textContent=
+    `Trattamento registrato: ${date} ore ${time} — ${nAppl}ª applicazione stagionale.`;
 }
 
 // --- API Key ---
@@ -755,11 +820,14 @@ refreshTreatStats();
 document.getElementById('calcBtn').addEventListener('click',calculate);
 document.getElementById('reportBtn').addEventListener('click',generateReport);
 document.getElementById('checkWindowBtn').addEventListener('click',checkWindow);
-document.getElementById('logTreatBtn').addEventListener('click',logTreatment);
+
 document.getElementById('exportBtn').addEventListener('click',exportHistory);
 document.getElementById('importBtn').addEventListener('click',()=>document.getElementById('importFile').click());
 document.getElementById('importFile').addEventListener('change',importHistory);
 document.getElementById('saveApiKeyBtn').addEventListener('click',saveApiKey);
+document.getElementById('logTreatBtn').addEventListener('click',showTreatForm);
+document.getElementById('saveTreatBtn').addEventListener('click',saveTreatment);
+document.getElementById('cancelTreatBtn').addEventListener('click',hideTreatForm);
 // Show if key already saved
 if(localStorage.getItem('anthropic_api_key')){
   document.getElementById('apiKeyMsg').textContent='Chiave API già configurata ✓';
