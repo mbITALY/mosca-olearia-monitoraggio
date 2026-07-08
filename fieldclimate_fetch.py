@@ -329,8 +329,7 @@ if __name__ == "__main__":
         result.update(thermal)
         # Sostituisce lo score grezzo (da Tmax) con quello preciso (da dati orari)
         result["score"] = thermal["hourly_adult_score"]
-        print(f"
-  Score favorevolezza adulti AGGIORNATO (da orario): {result['score']}/100")
+        print(f"  Score favorevolezza adulti AGGIORNATO (da orario): {result['score']}/100")
         print(f"  Score da Tmax giornaliera (vecchio metodo): {result['score_daily_fallback']}/100")
     else:
         print("  ⚠️  Dati orari non disponibili — uso score da Tmax giornaliera come fallback")
