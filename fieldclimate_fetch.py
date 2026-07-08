@@ -197,6 +197,12 @@ def compute_hourly_thermal_stats(hourly_data: dict, cfg: dict) -> dict:
 
     gdd_tot = round(sum(daily_gdd), 1)
 
+    # Score favorevolezza adulti basato su dati orari
+    avg_hours_optimal = sum(daily_h_optimal) / len(daily_h_optimal) if daily_h_optimal else 0
+    hourly_adult_score = round(min(100, avg_hours_optimal / 24 * 100 * 1.5), 1)
+    avg_h37 = sum(daily_h37) / len(daily_h37) if daily_h37 else 0
+    hourly_adult_score = round(max(0, hourly_adult_score - avg_h37 * 3), 1)
+
     print(f"\n  Ore/giorno sopra 35°C: {daily_h35}")
     print(f"  Ore/giorno sopra 37°C: {daily_h37}")
     print(f"  Ore/giorno sopra 40°C: {daily_h40}")
@@ -206,6 +212,8 @@ def compute_hourly_thermal_stats(hourly_data: dict, cfg: dict) -> dict:
     print(f"  Giorni consecutivi ≥37°C (≥{th['s37_ore_min']}h): {cons37}")
     print(f"  Giorni consecutivi ≥40°C (≥{th['s40_ore_min']}h): {cons40}")
     print(f"  Indice soppressione termica: {soppressione}/100")
+    print(f"  Score favorevolezza adulti (orario): {hourly_adult_score}/100")
+    print(f"  [confronto: score da Tmax giornaliera sarebbe diverso]")
 
     return {
         "daily_hours_above_35": daily_h35,
@@ -217,6 +225,8 @@ def compute_hourly_thermal_stats(hourly_data: dict, cfg: dict) -> dict:
         "cons_days_above_40":   cons40,
         "thermal_suppression":  soppressione,
         "gdd_weekly":           gdd_tot,
+        "hourly_adult_score":   hourly_adult_score,
+        "avg_hours_optimal":    round(avg_hours_optimal, 1),
     }
 
 
@@ -263,10 +273,11 @@ def compute_climate_score(daily_data: dict, cfg: dict) -> dict:
     print(f"  Notti fredde (<10°C):   {cold_nights}")
     print(f"  Giorni favorevoli mosca ({finestra_score}gg): {favorable_days}")
     print(f"  Rischio dilavamento (ultimi {d['finestra_giorni']}gg): {'⚠️  SÌ' if washout_risk else '✅ NO'} ({max_rain_breve}mm)")
-    print(f"  Score favorevolezza adulti: {round(score,1)}/100")
+    print(f"  Score favorevolezza adulti (da Tmax giornaliera, fallback): {round(score,1)}/100")
 
     return {
-        "score":                  round(score, 1),
+        "score_daily_fallback":   round(score, 1),
+        "score":                  round(score, 1),  # verrà sovrascritto da hourly se disponibile
         "avg_tmax":               round(avg_max, 1),
         "avg_tmin":               avg_min,
         "cold_nights":            cold_nights,
@@ -316,8 +327,13 @@ if __name__ == "__main__":
     thermal = compute_hourly_thermal_stats(hourly, cfg)
     if thermal:
         result.update(thermal)
+        # Sostituisce lo score grezzo (da Tmax) con quello preciso (da dati orari)
+        result["score"] = thermal["hourly_adult_score"]
+        print(f"
+  Score favorevolezza adulti AGGIORNATO (da orario): {result['score']}/100")
+        print(f"  Score da Tmax giornaliera (vecchio metodo): {result['score_daily_fallback']}/100")
     else:
-        print("  ⚠️  Dati orari non disponibili — salvo solo dati giornalieri")
+        print("  ⚠️  Dati orari non disponibili — uso score da Tmax giornaliera come fallback")
 
     print(f"\nRisultato finale: {result}")
     if result.get("ok"):
