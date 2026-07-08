@@ -74,6 +74,7 @@ def extract_values(sensors: list, code: int, aggr_key: str) -> list:
 def compute_results(daily_data: dict, cfg: dict) -> dict:
     sensors   = daily_data.get("data", [])
     tmax_list = extract_values(sensors, TEMP_CODE, "max")
+    tmin_list = extract_values(sensors, TEMP_CODE, "min")
     hum_list  = extract_values(sensors, HUM_CODE,  "avg")
     rain_list = extract_values(sensors, RAIN_CODE, "sum")
 
@@ -109,6 +110,7 @@ def compute_results(daily_data: dict, cfg: dict) -> dict:
     max_daily_rain = max(rain_list) if rain_list else None
 
     print(f"  Tmax giornaliere (°C):             {tmax_list}")
+    print(f"  Tmin giornaliere (°C):             {tmin_list}")
     print(f"  Umidità media (%):                 {hum_list}")
     print(f"  Pioggia giornaliera (mm):          {rain_list}")
     print(f"  Pioggia totale settimana:          {total_rain} mm")
@@ -117,9 +119,16 @@ def compute_results(daily_data: dict, cfg: dict) -> dict:
     print(f"  Giorni favorevoli mosca ({finestra_score}gg):    {favorable_days}/{len(tmax_score)}")
     print(f"  Score climatico:                   {round(score, 1)}/100")
 
+
+    avg_min     = round(sum(tmin_list) / len(tmin_list), 1) if tmin_list else None
+    cold_nights = sum(1 for t in tmin_list if t < 10) if tmin_list else None
+    print(f"  Tmin media:                        {avg_min}°C")
+    print(f"  Notti fredde (<10°C):              {cold_nights}")
     return {
         "score":                  round(score, 1),
         "avg_tmax":               round(avg_max, 1),
+        "avg_tmin":               avg_min,
+        "cold_nights":            cold_nights,
         "favorable_days":         favorable_days,
         "hot_dry_days":           hot_dry_days,
         "total_rain_mm":          total_rain,
