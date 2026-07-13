@@ -1,5 +1,65 @@
 [
   {
+    "date": "2026-07-13",
+    "score_daily_fallback": 14.3,
+    "score": 69.6,
+    "avg_tmax": 34.1,
+    "avg_tmin": 18.8,
+    "cold_nights": 0,
+    "favorable_days": 1,
+    "hot_dry_days": 0,
+    "total_rain_mm": 5.4,
+    "rainy_days": 1,
+    "max_daily_rain_mm": 4.6,
+    "washout_window_days": 2,
+    "washout_rain_mm": 0,
+    "treatment_washout_risk": false,
+    "ok": true,
+    "daily_hours_above_35": [
+      0,
+      0,
+      0,
+      2,
+      0,
+      0,
+      0
+    ],
+    "daily_hours_above_37": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "daily_hours_above_40": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "daily_hours_optimal": [
+      15,
+      18,
+      16,
+      14,
+      19,
+      19,
+      16
+    ],
+    "cons_days_above_35": 0,
+    "cons_days_above_37": 0,
+    "cons_days_above_40": 0,
+    "thermal_suppression": 0.0,
+    "gdd_weekly": 111.7,
+    "hourly_adult_score": 69.6,
+    "avg_hours_optimal": 16.7
+  },
+  {
     "date": "2026-07-08",
     "score_daily_fallback": 14.3,
     "score": 71.4,
