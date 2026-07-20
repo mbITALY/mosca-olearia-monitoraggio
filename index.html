@@ -104,6 +104,20 @@ button:disabled{opacity:.5;cursor:not-allowed;}
 .verdict-icon{font-size:18px;line-height:1;}
 .verdict-text strong{display:block;font-family:'Fraunces',serif;font-size:14px;margin-bottom:3px;}
 .verdict-text span{font-size:12px;color:var(--text-dim);line-height:1.5;}
+.fcast-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:4px;}
+@media(max-width:700px){.fcast-grid{grid-template-columns:repeat(4,1fr);}}
+.fcast-day{background:var(--bg-elev);border:1px solid var(--line);border-radius:7px;padding:8px 5px;text-align:center;}
+.fcast-day .fd{font-size:10px;color:var(--text-dim);margin-bottom:4px;text-transform:uppercase;letter-spacing:.03em;}
+.fcast-day .ft{font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.6;}
+.fcast-day .fb{height:6px;border-radius:3px;margin-top:5px;}
+.rec-box{padding:16px;border-radius:8px;border:2px solid var(--line);display:flex;gap:12px;align-items:flex-start;}
+.rec-icon{font-size:28px;line-height:1;flex-shrink:0;}
+.rec-text strong{display:block;font-family:'Fraunces',serif;font-size:17px;margin-bottom:6px;}
+.rec-text p{font-size:13px;color:var(--text-dim);line-height:1.6;margin:0;}
+.fcast-summary-table{width:100%;border-collapse:collapse;font-size:12px;}
+.fcast-summary-table td{padding:6px 8px;border-bottom:1px solid var(--line);}
+.fcast-summary-table td:first-child{color:var(--text-dim);}
+.fcast-summary-table td:last-child{font-family:'IBM Plex Mono',monospace;text-align:right;}
 
 /* Storico */
 .history-actions{display:flex;gap:8px;margin-bottom:10px;}
@@ -201,10 +215,20 @@ button:disabled{opacity:.5;cursor:not-allowed;}
     <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 8px;">Ranking zone per rischio</div>
     <div id="zoneRanking"></div>
 
-    <!-- Report AI -->
-    <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin:16px 0 8px;">📋 Report settimanale</div>
-    <button id="reportBtn">Genera report settimanale con AI</button>
-    <div class="report-box" id="reportBox" style="display:none;"></div>
+
+  </div>
+
+  <!-- PREVISIONE CLIMATICA 7 GIORNI -->
+  <div class="card" id="forecastCard">
+    <h2>🔮 Previsione climatica — prossimi 7 giorni</h2>
+    <div class="hint" style="margin-bottom:14px;">Basata su dati Open-Meteo. Integra il rischio osservato (trappole + clima passato) con le condizioni previste per supportare la decisione preventiva di trattamento con Spintor Fly.</div>
+    <button id="forecastBtn">Calcola previsione e raccomandazione</button>
+    <div class="status-msg" id="forecastStatusMsg"></div>
+    <div id="forecastContent" style="display:none;margin-top:16px;">
+      <div id="forecastDayGrid"></div>
+      <div id="forecastSummary" style="margin-top:14px;"></div>
+      <div id="forecastRecommendation" style="margin-top:12px;"></div>
+    </div>
   </div>
 
   <!-- FINESTRA TRATTAMENTO -->
@@ -247,16 +271,6 @@ button:disabled{opacity:.5;cursor:not-allowed;}
       </div>
     </div>
     <button class="sec" id="logTreatBtn" style="margin-top:10px;">+ Registra trattamento effettuato</button>
-  </div>
-
-  <!-- IMPOSTAZIONI -->
-  <div class="card" style="margin-bottom:14px;">
-    <h2>⚙️ Impostazioni</h2>
-    <label>Chiave API Anthropic (per il report settimanale AI)</label>
-    <input type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off">
-    <div class="hint">La chiave viene salvata solo nel tuo browser, non nel codice. Ottienila su console.anthropic.com → API Keys.</div>
-    <button id="saveApiKeyBtn" style="margin-top:10px;">Salva chiave API</button>
-    <div class="status-msg" id="apiKeyMsg"></div>
   </div>
 
   <!-- STORICO -->
@@ -394,13 +408,17 @@ async function getClimateScore(){
       avgTmin:latest.avg_tmin||null,
       coldNights:latest.cold_nights||null,
       avgHoursOptimal:latest.avg_hours_optimal||null,
+      avgHoursSuboptimal:latest.avg_hours_suboptimal||null,
+      avgHoursStress:latest.avg_hours_stress||null,
       thermalSuppression:latest.thermal_suppression||0,
+      pupalStressPct:latest.pupal_stress_pct||0,
       gddWeekly:latest.gdd_weekly||null,
-      dailyHoursAbove35:latest.daily_hours_above_35||null,
+      dailyHoursOptimal:latest.daily_hours_optimal||null,
+      dailyHoursAbove33:latest.daily_hours_above_33||null,
       dailyHoursAbove37:latest.daily_hours_above_37||null,
       dailyHoursAbove40:latest.daily_hours_above_40||null,
-      dailyHoursOptimal:latest.daily_hours_optimal||null,
-      consDays35:latest.cons_days_above_35||0,
+      dailyHoursPupal:latest.daily_hours_pupal_stress||null,
+      consDays33:latest.cons_days_above_33||0,
       consDays37:latest.cons_days_above_37||0,
       consDays40:latest.cons_days_above_40||0,
     };
@@ -428,52 +446,99 @@ function thermalBar(hours){
   if(!hours||!hours.length) return '—';
   return hours.map(h=>{
     const col=h>=6?'#b23a2e':h>=3?'#c99a2e':'#7a9a52';
-    const op=0.2+Math.min(h/8,1)*0.8;
+    const op=0.15+Math.min(h/10,1)*0.85;
     return `<span title="${h}h" style="display:inline-block;width:18px;height:14px;background:${col};opacity:${op.toFixed(2)};border-radius:2px;margin:1px;vertical-align:middle;"></span>`;
   }).join('');
 }
 
 function renderClimateDetail(climate){
   if(!climate.ok){document.getElementById('climateDetail').innerHTML='';return;}
-  const srcLabel=climate.source==='centralina'?`Centralina Pessl · ${climate.date}`:'Open-Meteo (stima)';
-  const washWarn=climate.washoutRisk?`<div style="color:var(--high);margin-top:8px;padding:8px;background:#b23a2e18;border-radius:6px;">⚠️ Negli ultimi 2 giorni sono caduti ${climate.washoutMm}mm — un trattamento recente potrebbe essere stato dilavato.</div>`:'';
-  const suppColor=climate.thermalSuppression>60?'#7a9a52':climate.thermalSuppression>30?'#c99a2e':'#a4ab90';
-  const suppLabel=climate.thermalSuppression>60?'Alta — caldo letale per uova/larve':climate.thermalSuppression>30?'Moderata':climate.thermalSuppression>0?'Bassa':'Nessuna — temperature non letali';
-  const hasHourly=climate.avgHoursOptimal!=null;
-  document.getElementById('climateDetail').innerHTML=`
+  const srcLabel = climate.source==='centralina'
+    ? `Centralina Pessl · ${climate.date}`
+    : 'Open-Meteo (stima)';
+  const hasHourly = climate.avgHoursOptimal != null;
+  const washWarn = climate.washoutRisk
+    ? `<tr style="color:var(--high)"><td colspan="3">⚠️ Negli ultimi 2 giorni sono caduti ${climate.washoutMm}mm — verifica se un trattamento è stato dilavato.</td></tr>`
+    : '';
+  const suppColor = climate.thermalSuppression>60?'#7a9a52':climate.thermalSuppression>30?'#c99a2e':'#a4ab90';
+
+  document.getElementById('climateDetail').innerHTML = `
     <h3>🌡️ Dati climatici settimanali — ${srcLabel}</h3>
-    <div class="clim-grid" style="grid-template-columns:repeat(3,1fr);">
-      <div class="clim-stat"><span class="clim-val">${climate.avgTmax}°C</span><span class="clim-lbl">Tmax media</span></div>
-      <div class="clim-stat"><span class="clim-val">${climate.avgTmin!=null?climate.avgTmin+'°C':'—'}</span><span class="clim-lbl">Tmin media</span></div>
-      <div class="clim-stat"><span class="clim-val">${climate.totalRain??'—'}mm</span><span class="clim-lbl">Pioggia totale</span></div>
-    </div>
-    ${hasHourly?`
-    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);">
-      <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Analisi oraria — Centralina Pessl</div>
-      <div class="clim-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px;">
-        <div class="clim-stat"><span class="clim-val" style="color:#7a9a52">${climate.avgHoursOptimal}h</span><span class="clim-lbl">Ore/giorno ottimali (18-30°C)</span></div>
-        <div class="clim-stat"><span class="clim-val" style="color:${suppColor}">${climate.thermalSuppression}/100</span><span class="clim-lbl">Soppressione termica uova/larve</span></div>
-        <div class="clim-stat"><span class="clim-val">${climate.gddWeekly??'—'}</span><span class="clim-lbl">Gradi giorno (base 10°C)</span></div>
-      </div>
-      <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px;">Ore/giorno sopra soglie critiche — 7 giorni (verde=bassa, arancio=media, rosso=letale):</div>
-      <div style="display:grid;grid-template-columns:70px 1fr 90px;gap:6px;align-items:center;font-size:11px;margin-bottom:4px;">
-        <span style="color:var(--text-dim);">≥ 35°C</span><span>${thermalBar(climate.dailyHoursAbove35)}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">${climate.consDays35} gg cons.</span>
-      </div>
-      <div style="display:grid;grid-template-columns:70px 1fr 90px;gap:6px;align-items:center;font-size:11px;margin-bottom:4px;">
-        <span style="color:var(--text-dim);">≥ 37°C</span><span>${thermalBar(climate.dailyHoursAbove37)}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">${climate.consDays37} gg cons.</span>
-      </div>
-      <div style="display:grid;grid-template-columns:70px 1fr 90px;gap:6px;align-items:center;font-size:11px;">
-        <span style="color:var(--text-dim);">≥ 40°C</span><span>${thermalBar(climate.dailyHoursAbove40)}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">${climate.consDays40} gg cons.</span>
-      </div>
-      <div style="margin-top:10px;padding:10px;background:${suppColor}18;border-radius:6px;font-size:12px;line-height:1.5;">
-        <strong>Soppressione termica:</strong> ${suppLabel}. ${climate.thermalSuppression<20?'Uova e larve deposte questa settimana sopravvivono normalmente — la pressione in campo corrisponde alle catture.':climate.thermalSuppression<50?'Mortalità parziale di uova e larve di prima età.':'Stress termico elevato: alta mortalità di uova e larve. Il rischio reale è inferiore alle catture in trappola.'}
-      </div>
-    </div>`:''}
-    <div class="clim-note" style="margin-top:12px;">
-      <strong>Score favorevolezza adulti (${hasHourly?'dati orari':'Tmax giornaliera'}):</strong>
-      ${hasHourly?`Percentuale del giorno nel range ottimale 18-30°C (media ${climate.avgHoursOptimal}h/24h → ${climate.score}/100).`:`Giorni con Tmax 18-30°C su 7 (${climate.favorableDays}/7 → ${climate.score}/100).`}
-      ${washWarn}
-    </div>`;}
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;">
+      <thead>
+        <tr style="border-bottom:1px solid var(--line);">
+          <th style="text-align:left;padding:5px 8px;color:var(--text-dim);font-size:10px;text-transform:uppercase;letter-spacing:.04em;">Parametro</th>
+          <th style="text-align:right;padding:5px 8px;color:var(--text-dim);font-size:10px;text-transform:uppercase;letter-spacing:.04em;">Valore</th>
+          <th style="text-align:left;padding:5px 8px;color:var(--text-dim);font-size:10px;text-transform:uppercase;letter-spacing:.04em;">Rilevanza</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid var(--line)">
+          <td style="padding:6px 8px;color:var(--text-dim)">Tmax media settimana</td>
+          <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace">${climate.avgTmax}°C</td>
+          <td style="padding:6px 8px;color:var(--text-dim)">Riferimento termico generale</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--line)">
+          <td style="padding:6px 8px;color:var(--text-dim)">Tmin media settimana</td>
+          <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace">${climate.avgTmin!=null?climate.avgTmin+'°C':'—'}</td>
+          <td style="padding:6px 8px;color:var(--text-dim)">Notti fredde rallentano sviluppo larvale</td>
+        </tr>
+        ${hasHourly?`
+        <tr style="border-bottom:1px solid var(--line);background:#7a9a5214">
+          <td style="padding:6px 8px;"><strong>Ore/giorno in range ottimale (23-29°C)</strong></td>
+          <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#7a9a52"><strong>${climate.avgHoursOptimal}h</strong></td>
+          <td style="padding:6px 8px;">Attività massima adulti — contribuisce al rischio</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--line)">
+          <td style="padding:6px 8px;color:var(--text-dim)">Ore/giorno subottimali (18-23°C / 29-31°C)</td>
+          <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace">${climate.avgHoursSuboptimal!=null?climate.avgHoursSuboptimal+'h':'—'}</td>
+          <td style="padding:6px 8px;color:var(--text-dim)">Attività ridotta adulti (peso ×0.4)</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--line)">
+          <td style="padding:6px 8px;color:var(--text-dim)">Ore/giorno stress adulti (>31°C)</td>
+          <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;color:${climate.avgHoursStress>4?'#c99a2e':'var(--text-dim)'}">${climate.avgHoursStress!=null?climate.avgHoursStress+'h':'—'}</td>
+          <td style="padding:6px 8px;color:var(--text-dim)">Mortalità tutti gli stadi (>31°C — PLoS ONE 2015)</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--line);background:${climate.thermalSuppression>20?suppColor+'14':'transparent'}">
+          <td style="padding:6px 8px;"><strong>Soppressione termica uova/larve</strong></td>
+          <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;color:${suppColor}"><strong>${climate.thermalSuppression}/100</strong></td>
+          <td style="padding:6px 8px;">Ore >33°C (4h/3gg), >37°C (2h/2gg), >40°C (1h) — Wang et al. 2009</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--line)">
+          <td style="padding:6px 8px;color:var(--text-dim)">Stress pupale (ore >30°C)</td>
+          <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;color:${climate.pupalStressPct>50?'#c99a2e':'var(--text-dim)'}">${climate.pupalStressPct!=null?climate.pupalStressPct+'%':'—'} giorni</td>
+          <td style="padding:6px 8px;color:var(--text-dim)">Rallentamento sviluppo pupale (Girolami 1979)</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--line)">
+          <td style="padding:6px 8px;color:var(--text-dim)">Gradi giorno accumulati (base 10°C)</td>
+          <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace">${climate.gddWeekly!=null?climate.gddWeekly:'—'}</td>
+          <td style="padding:6px 8px;color:var(--text-dim)">Stima velocità completamento generazioni</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--line)">
+          <td style="padding:6px 8px;color:var(--text-dim)">Distribuzione oraria >33°C (7 giorni)</td>
+          <td style="padding:6px 8px;text-align:right">${thermalBar(climate.dailyHoursAbove33)}</td>
+          <td style="padding:6px 8px;color:var(--text-dim)">${climate.consDays33} giorni cons. — soglia uova/larve</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--line)">
+          <td style="padding:6px 8px;color:var(--text-dim)">Distribuzione oraria >37°C (7 giorni)</td>
+          <td style="padding:6px 8px;text-align:right">${thermalBar(climate.dailyHoursAbove37)}</td>
+          <td style="padding:6px 8px;color:var(--text-dim)">${climate.consDays37} giorni cons. — nessuna schiusa uova</td>
+        </tr>`:''}
+        <tr style="border-bottom:1px solid var(--line)">
+          <td style="padding:6px 8px;color:var(--text-dim)">Pioggia totale settimana</td>
+          <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace">${climate.totalRain!=null?climate.totalRain+'mm':'—'}</td>
+          <td style="padding:6px 8px;color:var(--text-dim)">Dilavamento esca se ≥2mm in 24h</td>
+        </tr>
+        ${washWarn}
+      </tbody>
+    </table>
+    <div style="font-size:11px;color:var(--text-dim);margin-top:10px;line-height:1.5;">
+      <strong>Score favorevolezza adulti ${hasHourly?'(dati orari, 23-29°C)':'(Tmax giornaliera, fallback)'}:</strong>
+      ${hasHourly
+        ? `Peso: ore ottimali ×1.0 + ore subottimali ×0.4, su 24h totali → ${climate.score}/100`
+        : `Tmax giornaliera nel range 23-29°C → ${climate.score}/100`}
+    </div>`;
+}
 
 async function calculate(){
   const statusMsg=document.getElementById('statusMsg');
@@ -540,12 +605,11 @@ async function calculate(){
   document.getElementById('infBar').style.width=infS+'%';
   document.getElementById('infBar').style.background=avgInf!==null?classify(infS).hex:'var(--line)';
 
-  const climSrc = climate.source==='centralina';
   const climHourly = climate.avgHoursOptimal!=null;
   document.getElementById('climVal').textContent=
     climate.ok?(climHourly?
-      `${climate.score}/100 · ${climate.avgHoursOptimal}h/giorno ottimali (centralina ${climate.date})`:
-      `${climate.score}/100 · ${climate.favorableDays}/7 gg favorevoli (${climSrc?'centralina':'Open-Meteo'})`):
+      `${climate.score}/100 · ${climate.avgHoursOptimal}h ottimali/gg (23-29°C) · ${climate.date}`:
+      `${climate.score}/100 · Tmax ${climate.avgTmax}°C (${climate.source})`):
     'non disponibile';
   document.getElementById('climBar').style.width=climate.score+'%';
   document.getElementById('climBar').style.background=classify(100-climate.score).hex;
@@ -610,80 +674,6 @@ async function calculate(){
   });
 }
 
-// --- AI Report ---
-async function generateReport(){
-  const btn=document.getElementById('reportBtn');
-  const box=document.getElementById('reportBox');
-  if(!lastZoneScores||lastTotal===null){box.style.display='block';box.textContent='Calcola prima l\'indice settimanale.';return;}
-
-  btn.disabled=true;btn.textContent='Generazione report in corso…';
-  box.style.display='block';box.className='report-box loading';box.textContent='Il report viene elaborato da Claude…';
-
-  const history=loadHistory();
-  const last4=history.slice(0,4);
-
-  const prompt=`Sei un agronomo esperto in olivicoltura biologica. Analizza i dati di monitoraggio della mosca olearia (Bactrocera oleae) per l'Agriturismo Baldeschi (Umbria, lago Trasimeno) e produci un report settimanale conciso in italiano.
-
-DATI SETTIMANA CORRENTE
-Data: ${new Date().toLocaleDateString('it-IT')}
-Fase fenologica: ${selectedPheno.name} (${selectedPheno.period}) — coefficiente vulnerabilità ×${selectedPheno.coeff}
-Indice di rischio complessivo: ${lastTotal}/100 (${lastTotal<30?'BASSO':lastTotal<55?'MEDIO':'ALTO'})
-
-DATI CLIMATICI (Centralina Pessl 0020F61F, fonte: ${lastClimate?.source||'—'})
-- Tmax media settimanale: ${lastClimate?.avgTmax||'—'}°C
-- Giorni favorevoli mosca (18-30°C): ${lastClimate?.favorableDays||'—'}/7
-- Pioggia totale settimana: ${lastClimate?.totalRain||'—'}mm
-- Giorni con pioggia ≥1mm: ${lastClimate?.rainyDays||'—'}
-- Score climatico: ${lastClimate?.score||'—'}/100
-- Rischio dilavamento esca (ultimi 2gg): ${lastClimate?.washoutRisk?'SÌ ('+lastClimate.washoutMm+'mm)':'NO'}
-
-DATI TRAPPOLE (3 trappole per zona)
-${lastZoneScores.map(z=>z.score!==null?`- ${z.name}: MAT ${z.mat?.toFixed(1)||0}, femmine ${z.pctF!==null?Math.round(z.pctF*100)+'%':'—'}, infestazione attiva ${z.infestazione!==null?z.infestazione+'%':'non rilevata'}, indice zona ${z.score}/100`:null).filter(Boolean).join('\n')}
-
-STORICO ULTIME SETTIMANE
-${last4.length>1?last4.slice(1).map(e=>`- ${e.date}: indice ${e.total}/100 (${e.label}), fase ${e.pheno||'—'}, Tmax ${e.avg_tmax||'—'}°C, score clima ${e.climate_score||'—'}`).join('\n'):'Prima rilevazione disponibile.'}
-
-VINCOLI TRATTAMENTO (Spintor Fly, agricoltura bio)
-- Unico insetticida ammesso in bio contro mosca olearia
-- Max 8 applicazioni/stagione, intervallo minimo 15 giorni
-- Non applicare con pioggia prevista o vento > 15 km/h
-
-Produci un report strutturato con:
-1. ANDAMENTO POPOLAZIONE (analisi trend catture per zona, zone critiche)
-2. PRESSIONE CLIMATICA (interpretazione dati meteo per la mosca, proiezione prossimi giorni)
-3. VULNERABILITÀ FENOLOGICA (impatto della fase attuale sul rischio)
-4. VALUTAZIONE COMPLESSIVA (indice di rischio commentato)
-5. RACCOMANDAZIONE OPERATIVA (trattare sì/no, quando, su quali zone prioritarie)
-
-Sii conciso, diretto e pratico. Tono professionale ma accessibile.`;
-
-  try{
-    const apiKey=localStorage.getItem('anthropic_api_key')||'';
-    if(!apiKey){
-      box.className='report-box';
-      box.textContent='⚠️ Chiave API Anthropic non configurata. Vai nella sezione Impostazioni in fondo alla pagina e inserisci la tua chiave API (console.anthropic.com → API Keys).';
-      btn.disabled=false;btn.textContent='Genera report settimanale con AI';
-      return;
-    }
-    const response=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-6',
-        max_tokens:1000,
-        messages:[{role:'user',content:prompt}]
-      })
-    });
-    const data=await response.json();
-    const text=data.content?.filter(b=>b.type==='text').map(b=>b.text).join('')||'Errore nella generazione del report.';
-    box.className='report-box';
-    box.textContent=text;
-  }catch(e){
-    box.className='report-box';
-    box.textContent='Errore nella generazione del report. Riprova tra qualche secondo.';
-  }
-  btn.disabled=false;btn.textContent='Genera report settimanale con AI';
-}
 
 // --- Storage ---
 function loadHistory(){
@@ -843,17 +833,191 @@ async function saveTreatment(){
     `Trattamento registrato: ${date} ore ${time} — ${nAppl}ª applicazione stagionale.`;
 }
 
-// --- API Key ---
-function saveApiKey(){
-  const key=document.getElementById('apiKeyInput').value.trim();
-  if(!key.startsWith('sk-ant-')){
-    document.getElementById('apiKeyMsg').textContent='La chiave deve iniziare con sk-ant-';
+// --- Previsione climatica 7 giorni ---
+async function computeForecast(){
+  const btn = document.getElementById('forecastBtn');
+  const statusMsg = document.getElementById('forecastStatusMsg');
+  const lat = document.getElementById('lat').value;
+  const lon = document.getElementById('lon').value;
+
+  btn.disabled = true;
+  btn.textContent = 'Calcolo previsione…';
+  statusMsg.textContent = 'Recupero previsioni meteo (7 giorni)…';
+
+  let days = [];
+  try{
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,windspeed_10m_max,et0_fao_evapotranspiration&hourly=temperature_2m&forecast_days=7&timezone=auto`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('meteo non disponibile');
+    const data = await res.json();
+
+    const hourlyTemps = data.hourly?.temperature_2m || [];
+    const dates       = data.daily.time;
+    const tmax        = data.daily.temperature_2m_max;
+    const tmin        = data.daily.temperature_2m_min;
+    const precip      = data.daily.precipitation_sum;
+    const precipProb  = data.daily.precipitation_probability_max;
+    const wind        = data.daily.windspeed_10m_max;
+
+    days = dates.map((date, i) => {
+      // Ore orarie del giorno (blocchi di 24)
+      const dayHours = hourlyTemps.slice(i*24, (i+1)*24).filter(t => t != null);
+
+      const hOpt    = dayHours.filter(t => t >= 23 && t <= 29).length;
+      const hSubopt = dayHours.filter(t => (t >= 18 && t < 23) || (t > 29 && t <= 31)).length;
+      const hStress = dayHours.filter(t => t > 31).length;
+      const hAbove33= dayHours.filter(t => t > 33).length;
+
+      // Score favorevolezza adulti del giorno
+      const adultScore = dayHours.length > 0
+        ? Math.round(Math.min(100, (hOpt + hSubopt * 0.4) / 24 * 100))
+        : Math.round(tmax[i] >= 23 && tmax[i] <= 29 ? 60 : 20);
+
+      const wd = wind[i];
+      const windOk  = wd < 15;
+      const rainOk  = (precip[i] || 0) < 1 && (precipProb[i] || 0) < 30;
+      const suitable = windOk && rainOk;
+
+      return {
+        date, tmax: tmax[i], tmin: tmin[i],
+        precip: precip[i], precipProb: precipProb[i],
+        wind: wd, windOk, rainOk, suitable,
+        hOpt, hSubopt, hStress, hAbove33,
+        adultScore
+      };
+    });
+  } catch(e) {
+    statusMsg.textContent = 'Previsioni non disponibili. Riprova tra poco.';
+    btn.disabled = false;
+    btn.textContent = 'Calcola previsione e raccomandazione';
     return;
   }
-  localStorage.setItem('anthropic_api_key',key);
-  document.getElementById('apiKeyMsg').textContent='Chiave salvata ✓';
-  document.getElementById('apiKeyInput').value='';
-  setTimeout(()=>document.getElementById('apiKeyMsg').textContent='',3000);
+
+  // --- Calcola indicatori settimanali previsti ---
+  const avgAdultScore  = Math.round(days.reduce((a,d) => a+d.adultScore, 0) / days.length);
+  const suitableDays   = days.filter(d => d.suitable);
+  const maxAdultScore  = Math.max(...days.map(d => d.adultScore));
+  const daysAbove33    = days.filter(d => d.hAbove33 >= 4).length;
+  const daysStress     = days.filter(d => d.hStress >= 3).length;
+
+  // Trend: score crescente nella seconda metà della settimana?
+  const firstHalf  = days.slice(0,3).reduce((a,d) => a+d.adultScore, 0)/3;
+  const secondHalf = days.slice(4,7).reduce((a,d) => a+d.adultScore, 0)/3;
+  const trendUp    = secondHalf > firstHalf + 10;
+
+  // Leggi stato trattamenti
+  const treatList   = loadTreatments();
+  const nAppl       = treatList.filter(d => d >= seasonStart()).length;
+  const lastDate    = treatList[0] || null;
+  const daysSince   = lastDate ? Math.floor((new Date() - new Date(lastDate)) / 86400000) : Infinity;
+  const canTreat    = nAppl < 8 && daysSince >= 15;
+
+  // Leggi indice rischio corrente (ultimo valore storico)
+  const history     = loadHistory();
+  const lastRisk    = history.length ? history[0].total : null;
+  const phenoCoeff  = selectedPheno.coeff;
+
+  // --- Raccomandazione integrata ---
+  let recIcon, recTitle, recText, recColor;
+
+  const climFavorable = avgAdultScore >= 50;
+  const climRising    = trendUp;
+  const riskHigh      = lastRisk !== null && lastRisk >= 45;
+  const riskMedium    = lastRisk !== null && lastRisk >= 25;
+  const phenoVuln     = phenoCoeff >= 1.0;
+
+  if(!canTreat){
+    recIcon  = '⏸️';
+    recTitle = 'Trattamento non disponibile';
+    recColor = 'var(--text-dim)';
+    if(nAppl >= 8)
+      recText  = 'Hai raggiunto il limite di 8 applicazioni stagionali di Spintor Fly. Nessun altro intervento chimico è possibile per questa stagione.';
+    else
+      recText  = `Sono trascorsi solo ${daysSince} giorni dall'ultimo trattamento. Spintor Fly richiede un intervallo minimo di 15 giorni tra le applicazioni.`;
+  } else if(!climFavorable && !riskHigh){
+    recIcon  = '✅';
+    recTitle = 'Nessun intervento necessario';
+    recColor = 'var(--low)';
+    recText  = `Le previsioni indicano condizioni poco favorevoli alla mosca (score medio previsto: ${avgAdultScore}/100). Il rischio osservato è contenuto. Continua il monitoraggio settimanale.`;
+  } else if(climFavorable && !riskHigh && !climRising && !phenoVuln){
+    recIcon  = '👁️';
+    recTitle = 'Monitoraggio intensificato';
+    recColor = 'var(--med)';
+    recText  = `Le condizioni climatiche previste sono favorevoli alla mosca (score medio: ${avgAdultScore}/100), ma il rischio corrente è ancora contenuto e la fase fenologica ha vulnerabilità limitata. Intensifica il controllo delle trappole nei prossimi 7 giorni.`;
+  } else if((climFavorable && riskMedium) || (climRising && phenoVuln)){
+    recIcon  = '⚠️';
+    recTitle = suitableDays.length > 0 ? 'Trattamento consigliato' : 'Trattamento consigliato — attendi finestra meteo';
+    recColor = 'var(--med)';
+    const bestDay = suitableDays[0];
+    const dayStr  = bestDay ? new Date(bestDay.date).toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'}) : null;
+    recText  = `Combinazione di rischio medio (${lastRisk}/100), condizioni climatiche favorevoli e fase fenologica vulnerabile (${selectedPheno.name}, ×${selectedPheno.coeff}). `
+      + (dayStr ? `La prima finestra meteo utile è ${dayStr} (pioggia assente, vento ${bestDay.wind?.toFixed(0)} km/h).` : 'Nessuna finestra meteo favorevole nei prossimi 7 giorni — attendi condizioni migliori.')
+      + ` Applicazione n° ${nAppl+1} stagionale.`;
+  } else if(riskHigh || (climFavorable && climRising && phenoVuln)){
+    recIcon  = '🚨';
+    recTitle = suitableDays.length > 0 ? 'Trattamento urgente' : 'Trattamento urgente — finestra meteo limitata';
+    recColor = 'var(--high)';
+    const bestDay = suitableDays[0];
+    const dayStr  = bestDay ? new Date(bestDay.date).toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'}) : null;
+    recText  = `Rischio elevato (${lastRisk}/100) con previsioni di condizioni molto favorevoli (score medio: ${avgAdultScore}/100${trendUp?' — in crescita':''}) e fase ${selectedPheno.name} ad alta vulnerabilità. `
+      + (dayStr ? `Tratta ${dayStr}: vento ${bestDay.wind?.toFixed(0)} km/h, pioggia prevista ${bestDay.precip?.toFixed(1)}mm.` : '⚠️ Nessuna finestra meteo nei prossimi 7 giorni — pianifica per appena le condizioni migliorano.')
+      + ` Sarà l'applicazione n° ${nAppl+1} stagionale.`;
+  } else {
+    recIcon  = '👁️';
+    recTitle = 'Monitoraggio continuato';
+    recColor = 'var(--text-dim)';
+    recText  = `Situazione sotto controllo. Score climatico previsto: ${avgAdultScore}/100. Continua il monitoraggio settimanale.`;
+  }
+
+  // --- Render ---
+  document.getElementById('forecastContent').style.display = 'block';
+
+  // Griglia giorni
+  document.getElementById('forecastDayGrid').innerHTML = `
+    <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Favorevolezza adulti giorno per giorno</div>
+    <div class="fcast-grid">
+      ${days.map(d => {
+        const cls = d.adultScore >= 60 ? '#b23a2e' : d.adultScore >= 35 ? '#c99a2e' : '#7a9a52';
+        const dl  = new Date(d.date).toLocaleDateString('it-IT',{weekday:'short',day:'numeric'});
+        const windDesc = d.wind < 8 ? 'calmo' : d.wind < 15 ? 'mod.' : 'forte';
+        return `<div class="fcast-day" style="border-color:${d.suitable?'var(--low)':'var(--line)'}">
+          <div class="fd">${dl}</div>
+          <div class="ft">
+            <span style="color:${cls}">${d.adultScore}</span><br>
+            <span style="font-size:10px;color:${d.rainOk?'var(--text-dim)':'#b23a2e'}">☔${d.precip?.toFixed(0)??'?'}mm</span><br>
+            <span style="font-size:10px;color:${d.windOk?'var(--text-dim)':'#b23a2e'}">💨${d.wind?.toFixed(0)??'?'}</span>
+          </div>
+          <div class="fb" style="background:${cls};opacity:.7"></div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="font-size:10px;color:var(--text-dim);margin-top:4px;">Bordo verde = giorno adatto per trattamento (pioggia assente + vento &lt;15km/h)</div>`;
+
+  // Tabella riepilogo
+  document.getElementById('forecastSummary').innerHTML = `
+    <table class="fcast-summary-table">
+      <tr><td>Score favorevolezza adulti medio (7gg previsti)</td><td style="color:${avgAdultScore>=60?'#b23a2e':avgAdultScore>=35?'#c99a2e':'#7a9a52'}">${avgAdultScore}/100</td></tr>
+      <tr><td>Score massimo previsto</td><td>${maxAdultScore}/100</td></tr>
+      <tr><td>Trend climatico settimana</td><td style="color:${trendUp?'#b23a2e':'#7a9a52'}">${trendUp?'↑ in crescita':'→ stabile / decrescente'}</td></tr>
+      <tr><td>Giorni >33°C per ≥4h (stress uova/larve)</td><td style="color:${daysAbove33>=3?'#7a9a52':'var(--text-dim)'}">${daysAbove33}/7 ${daysAbove33>=3?'(soppressione prevista)':''}</td></tr>
+      <tr><td>Finestre utili per trattamento</td><td style="color:${suitableDays.length>0?'#7a9a52':'#b23a2e'}">${suitableDays.length} giorni su 7</td></tr>
+      <tr><td>Applicazioni Spintor Fly stagione</td><td>${nAppl}/8 usate · ${8-nAppl} disponibili</td></tr>
+      <tr><td>Giorni dall'ultimo trattamento</td><td style="color:${daysSince<15?'#b23a2e':'#7a9a52'}">${daysSince===Infinity?'mai trattato':daysSince+' giorni'}</td></tr>
+    </table>`;
+
+  // Raccomandazione
+  document.getElementById('forecastRecommendation').innerHTML = `
+    <div class="rec-box" style="border-color:${recColor}">
+      <div class="rec-icon">${recIcon}</div>
+      <div class="rec-text">
+        <strong style="color:${recColor}">${recTitle}</strong>
+        <p>${recText}</p>
+      </div>
+    </div>`;
+
+  statusMsg.textContent = '';
+  btn.disabled = false;
+  btn.textContent = 'Aggiorna previsione';
 }
 
 // --- Init ---
@@ -862,20 +1026,16 @@ buildZoneGrid();
 renderHistory(loadHistory());
 refreshTreatStats();
 document.getElementById('calcBtn').addEventListener('click',calculate);
-document.getElementById('reportBtn').addEventListener('click',generateReport);
 document.getElementById('checkWindowBtn').addEventListener('click',checkWindow);
 
 document.getElementById('exportBtn').addEventListener('click',exportHistory);
 document.getElementById('importBtn').addEventListener('click',()=>document.getElementById('importFile').click());
 document.getElementById('importFile').addEventListener('change',importHistory);
-document.getElementById('saveApiKeyBtn').addEventListener('click',saveApiKey);
+document.getElementById('forecastBtn').addEventListener('click',computeForecast);
 document.getElementById('logTreatBtn').addEventListener('click',showTreatForm);
 document.getElementById('saveTreatBtn').addEventListener('click',saveTreatment);
 document.getElementById('cancelTreatBtn').addEventListener('click',hideTreatForm);
-// Show if key already saved
-if(localStorage.getItem('anthropic_api_key')){
-  document.getElementById('apiKeyMsg').textContent='Chiave API già configurata ✓';
-}
+
 </script>
 </body>
 </html>
