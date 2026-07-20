@@ -161,7 +161,7 @@ button:disabled{opacity:.5;cursor:not-allowed;}
       </div>
       <div>
         <label>Trattamento effettuato questa settimana?</label>
-        <select id="trattamento_fatto">
+        <select id="trattamento_fatto" onchange="if(this.value==='si'){showTreatForm();}">
           <option value="">— nessun trattamento —</option>
           <option value="si">Sì — trattamento effettuato</option>
           <option value="programmato">Programmato per i prossimi giorni</option>
@@ -270,6 +270,12 @@ button:disabled{opacity:.5;cursor:not-allowed;}
       </div>
     </div>
     <button class="sec" id="logTreatBtn" style="margin-top:10px;">+ Registra trattamento effettuato</button>
+  </div>
+
+  <!-- RECAP TRATTAMENTI -->
+  <div class="card" id="treatRecapCard">
+    <h2 style="margin-bottom:10px;">💊 Trattamenti effettuati — stagione corrente</h2>
+    <div id="treatRecapContent"><div class="empty">Nessun trattamento registrato ancora.</div></div>
   </div>
 
   <!-- STORICO -->
@@ -851,6 +857,7 @@ async function saveTreatment(){
   hideTreatForm();
   document.getElementById('windowStatusMsg').textContent=
     `Trattamento registrato: ${date} ore ${time} — ${nAppl}ª applicazione stagionale.`;
+  renderTreatRecap();
 }
 
 // --- Previsione climatica 7 giorni ---
@@ -1040,6 +1047,90 @@ async function computeForecast(){
   btn.textContent = 'Aggiorna previsione';
 }
 
+// --- Recap trattamenti ---
+function renderTreatRecap(){
+  const records = JSON.parse(localStorage.getItem('mosca_treat_records')||'[]');
+  const container = document.getElementById('treatRecapContent');
+  if(!records || !records.length){
+    container.innerHTML='<div class="empty">Nessun trattamento registrato ancora.</div>';
+    return;
+  }
+
+  // Filtra stagione corrente (da maggio dell'anno campagna)
+  const sStart = seasonStart();
+  const seasonRecords = records.filter(r => r.date >= sStart);
+
+  // Conta applicazioni per zona
+  const zoneCount = {};
+  const zoneLastDate = {};
+  ZONES.forEach(z => { zoneCount[z] = 0; zoneLastDate[z] = null; });
+
+  seasonRecords.forEach(r => {
+    (r.zones || []).forEach(z => {
+      if(zoneCount[z] !== undefined){
+        zoneCount[z]++;
+        if(!zoneLastDate[z] || r.date > zoneLastDate[z]) zoneLastDate[z] = r.date;
+      }
+    });
+  });
+
+  // Tabella per zona
+  const zoneRows = ZONES.map(z => {
+    const n = zoneCount[z];
+    const last = zoneLastDate[z];
+    const daysSince = last ? Math.floor((new Date() - new Date(last)) / 86400000) : null;
+    const remaining = 8 - n;
+    const statusColor = n >= 8 ? '#b23a2e' : n >= 6 ? '#c99a2e' : '#7a9a52';
+    return `<tr>
+      <td style="padding:7px 8px;text-transform:capitalize;font-weight:500">${z}</td>
+      <td style="padding:7px 8px;text-align:center;font-family:'IBM Plex Mono',monospace;color:${statusColor}">${n}/8</td>
+      <td style="padding:7px 8px;text-align:center;font-family:'IBM Plex Mono',monospace">${last||'—'}</td>
+      <td style="padding:7px 8px;text-align:center;font-family:'IBM Plex Mono',monospace;color:${daysSince!==null&&daysSince<15?'#b23a2e':'var(--text-dim)'}">${daysSince!==null?daysSince+'gg fa':'—'}</td>
+      <td style="padding:7px 8px;text-align:center;font-family:'IBM Plex Mono',monospace;color:${remaining<=2?'#b23a2e':'var(--text-dim)'}">${remaining} rimanenti</td>
+    </tr>`;
+  }).join('');
+
+  // Tabella cronologica trattamenti
+  const chronoRows = seasonRecords.map((r,i) => {
+    const zones = (r.zones||[]).join(', ') || '—';
+    return `<tr>
+      <td style="padding:6px 8px;font-family:'IBM Plex Mono',monospace">${r.date}</td>
+      <td style="padding:6px 8px;font-family:'IBM Plex Mono',monospace">${r.time||'—'}</td>
+      <td style="padding:6px 8px;text-transform:capitalize">${zones}</td>
+      <td style="padding:6px 8px;font-family:'IBM Plex Mono',monospace">${r.temp!=null?r.temp+'°C':'—'}</td>
+      <td style="padding:6px 8px">${r.wind||'—'}</td>
+      <td style="padding:6px 8px;color:var(--text-dim);font-size:11px">${r.notes||'—'}</td>
+      <td style="padding:6px 8px;font-family:'IBM Plex Mono',monospace;color:var(--accent)">${r.n_applicazione_stagionale?r.n_applicazione_stagionale+'ª':''}</td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Riepilogo per zona — stagione ${new Date().getFullYear()}</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px;">
+      <thead><tr style="border-bottom:1px solid var(--line)">
+        <th style="text-align:left;padding:5px 8px;color:var(--text-dim);font-size:10px;text-transform:uppercase">Zona</th>
+        <th style="text-align:center;padding:5px 8px;color:var(--text-dim);font-size:10px;text-transform:uppercase">Applicazioni</th>
+        <th style="text-align:center;padding:5px 8px;color:var(--text-dim);font-size:10px;text-transform:uppercase">Ultimo trattamento</th>
+        <th style="text-align:center;padding:5px 8px;color:var(--text-dim);font-size:10px;text-transform:uppercase">Giorni trascorsi</th>
+        <th style="text-align:center;padding:5px 8px;color:var(--text-dim);font-size:10px;text-transform:uppercase">Disponibili</th>
+      </tr></thead>
+      <tbody>${zoneRows}</tbody>
+    </table>
+    <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Cronologia trattamenti</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="border-bottom:1px solid var(--line)">
+        <th style="text-align:left;padding:5px 8px;color:var(--text-dim);font-size:10px;text-transform:uppercase">Data</th>
+        <th style="text-align:left;padding:5px 8px;color:var(--text-dim);font-size:10px;text-transform:uppercase">Ora</th>
+        <th style="text-align:left;padding:5px 8px;color:var(--text-dim);font-size:10px;text-transform:uppercase">Zone</th>
+        <th style="text-align:left;padding:5px 8px;color:var(--text-dim);font-size:10px;text-transform:uppercase">Temp.</th>
+        <th style="text-align:left;padding:5px 8px;color:var(--text-dim);font-size:10px;text-transform:uppercase">Vento</th>
+        <th style="text-align:left;padding:5px 8px;color:var(--text-dim);font-size:10px;text-transform:uppercase">Note</th>
+        <th style="text-align:left;padding:5px 8px;color:var(--text-dim);font-size:10px;text-transform:uppercase">N°</th>
+      </tr></thead>
+      <tbody>${chronoRows}</tbody>
+    </table>`;
+}
+
 // --- Init ---
 buildPhenoGrid();
 buildZoneGrid();
@@ -1052,6 +1143,7 @@ document.getElementById('exportBtn').addEventListener('click',exportHistory);
 document.getElementById('importBtn').addEventListener('click',()=>document.getElementById('importFile').click());
 document.getElementById('importFile').addEventListener('change',importHistory);
 document.getElementById('forecastBtn').addEventListener('click',computeForecast);
+renderTreatRecap();
 document.getElementById('logTreatBtn').addEventListener('click',showTreatForm);
 document.getElementById('saveTreatBtn').addEventListener('click',saveTreatment);
 document.getElementById('cancelTreatBtn').addEventListener('click',hideTreatForm);
