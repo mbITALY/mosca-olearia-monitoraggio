@@ -541,6 +541,8 @@ function renderClimateDetail(climate){
 
 async function calculate(){
   const statusMsg=document.getElementById('statusMsg');
+  const btn=document.getElementById('calcBtn');
+  try{
   const zoneData=ZONES.map((_,i)=>{
     const m=parseFloat(document.getElementById('m_'+i).value)||0;
     const f=parseFloat(document.getElementById('f_'+i).value)||0;
@@ -635,7 +637,6 @@ async function calculate(){
   document.getElementById('resultCard').style.display='block';
   ZONES.forEach((_,i)=>updateZoneStat(i));
   statusMsg.textContent=climate.source==='open-meteo'?'Centralina non raggiunta, usato Open-Meteo come stima.':'';
-  document.getElementById('calcBtn').textContent='Calcola indice settimanale';
 
   // Campi aggiuntivi
   const invaiaturaPct=document.getElementById('invaiatura_pct').value;
@@ -673,7 +674,14 @@ async function calculate(){
   });
   }catch(saveErr){
     console.error('Errore salvataggio storico:',saveErr);
-    document.getElementById('statusMsg').textContent='⚠️ Errore salvataggio storico: '+saveErr.message;
+    statusMsg.textContent='⚠️ Errore salvataggio: '+saveErr.message;
+  }
+  }catch(err){
+    console.error('Errore calcolo:',err);
+    statusMsg.textContent='⚠️ Errore: '+err.message;
+  }finally{
+    btn.textContent='Calcola indice settimanale';
+    btn.disabled=false;
   }
 }
 
