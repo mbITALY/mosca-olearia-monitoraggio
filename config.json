@@ -1,23 +1,36 @@
 {
-  "_note": "Modifica qui i parametri senza toccare lo script Python.",
+  "_note": "Parametri aggiornati su base letteratura scientifica (8 studi su B. oleae). Modifica qui senza toccare lo script Python.",
+  "_fonti_principali": [
+    "Wang et al. 2009 (Environ. Entomol.) - cicli diurni realistici, B. oleae",
+    "Genc & Nation 2008 (Afr. J. Biotechnol.) - temperature costanti, B. oleae",
+    "Girolami 1979 / Tsitsipis 1977 - range sviluppo stadi immaturi, B. oleae",
+    "Pappas et al. 2011 (J. Appl. Entomol.) - esposizioni brevi 2h, B. oleae",
+    "Fletcher & Kapatos 1978/1983 - maturazione ovarica, B. oleae",
+    "PLoS ONE 2015 - dinamiche di popolazione Mediterraneo orientale, B. oleae",
+    "Insects 2021 - cambiamento climatico e parassiti mediterranei",
+    "Gutierrez, Ponti & Cossu 2009 (Climatic Change) - modelli demografici Italia"
+  ],
 
-  "clima": {
-    "finestra_score_giorni": 7,
-    "temp_favorevole_min": 18,
-    "temp_favorevole_max": 30,
-    "temp_stress_caldo": 34,
-    "umidita_stress_secco": 40,
-    "penalita_giorno_stress": 8
+  "adulti": {
+    "_note": "Range ottimale 23-29C da PLoS ONE 2015, Fletcher & Kapatos, Tzanakakis. Stress inizia a 31C (PLoS ONE: mortalita tutti gli stadi >31C). Cessazione attivita >35C (Insects 2021, Wang 2009).",
+    "temp_ottimale_min": 23,
+    "temp_ottimale_max": 29,
+    "temp_subottimale_min": 18,
+    "temp_subottimale_max": 31,
+    "temp_stress_inizio": 31,
+    "temp_immobilita": 35,
+    "peso_ore_subottimali": 0.4
   },
 
-  "soglie_termiche": {
-    "_note": "Soglie scientifiche per mortalità uova/larve Bactrocera oleae",
-    "s35_ore_min": 6,
-    "s35_giorni_cons": 3,
-    "s37_ore_min": 4,
+  "soppressione_uova_larve": {
+    "_note": "Soglie da Wang et al. 2009 (cicli diurni B. oleae) e Girolami 1979. Soglia 33C da PLoS ONE (mortalita tutti gli stadi >31C, conservativa a 33C). Soglia 37.5C da Wang (nessuna schiusa a 37.8C ciclico). Pupe: limite sviluppo 30C da Girolami.",
+    "s33_ore_min": 4,
+    "s33_giorni_cons": 3,
+    "s37_ore_min": 2,
     "s37_giorni_cons": 2,
-    "s40_ore_min": 2,
+    "s40_ore_min": 1,
     "s40_giorni_cons": 1,
+    "limite_pupe_gradi": 30,
     "gdd_base": 10
   },
 
@@ -35,6 +48,7 @@
   },
 
   "trappole": {
+    "_note": "Flypack Serbios: attrattivo misto feromone + proteico. Maschi peso 0.8, femmine 1.5.",
     "peso_femmina": 1.5,
     "peso_maschio": 0.8
   }
