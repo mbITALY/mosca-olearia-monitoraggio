@@ -633,7 +633,6 @@ async function calculate(){
   }).join('');
 
   document.getElementById('resultCard').style.display='block';
-  document.getElementById('reportBox').style.display='none';
   ZONES.forEach((_,i)=>updateZoneStat(i));
   statusMsg.textContent=climate.source==='open-meteo'?'Centralina non raggiunta, usato Open-Meteo come stima.':'';
   document.getElementById('calcBtn').textContent='Calcola indice settimanale';
