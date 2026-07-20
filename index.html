@@ -261,7 +261,6 @@ button:disabled{opacity:.5;cursor:not-allowed;}
       </div>
       <label style="margin-top:10px;">Zone trattate</label>
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;" id="treat_zones">
-        ${ZONES.map((z,i)=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;text-transform:capitalize;color:var(--text);"><input type="checkbox" id="tz_${i}" style="width:auto;"> ${z}</label>`).join('')}
       </div>
       <label style="margin-top:10px;">Note applicazione</label>
       <input type="text" id="treat_notes" placeholder="es. applicato mattina presto, chioma asciutta…">
@@ -649,6 +648,7 @@ async function calculate(){
   const now=new Date();
   const annoCampagna=now.getMonth()>=8?now.getFullYear():now.getFullYear()-1; // campagna: sett-sett
 
+  try{
   await saveEntry({
     date:now.toISOString().slice(0,10),
     anno_campagna:annoCampagna,
@@ -669,9 +669,13 @@ async function calculate(){
       mat:z.mat?+z.mat.toFixed(1):null,
       pctF:z.pctF!==null?+z.pctF.toFixed(2):null,
       infestazione:z.infestazione,
-      drupe_campionate:document.getElementById('drupe_'+i).value?parseInt(document.getElementById('drupe_'+i).value):null
+      drupe_campionate:document.getElementById('drupe_'+i)?.value?parseInt(document.getElementById('drupe_'+i).value):null
     }))
   });
+  }catch(saveErr){
+    console.error('Errore salvataggio storico:',saveErr);
+    document.getElementById('statusMsg').textContent='⚠️ Errore salvataggio storico: '+saveErr.message;
+  }
 }
 
 
@@ -797,6 +801,15 @@ async function checkWindow(){
 function showTreatForm(){
   document.getElementById('treat_date').value=new Date().toISOString().slice(0,10);
   document.getElementById('treat_time').value=new Date().toTimeString().slice(0,5);
+  // Popola zone checkboxes dinamicamente
+  const zonesDiv=document.getElementById('treat_zones');
+  if(zonesDiv && !zonesDiv.dataset.built){
+    zonesDiv.innerHTML=ZONES.map((z,i)=>
+      `<label style="display:flex;align-items:center;gap:4px;font-size:12px;text-transform:capitalize;color:var(--text);">
+        <input type="checkbox" id="tz_${i}" style="width:auto;"> ${z}
+      </label>`).join('');
+    zonesDiv.dataset.built='1';
+  }
   document.getElementById('treatFormBox').style.display='block';
   document.getElementById('logTreatBtn').style.display='none';
 }
