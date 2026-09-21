@@ -1,5 +1,74 @@
 [
   {
+    "date": "2026-09-21",
+    "ok": true,
+    "avg_tmax": 29.3,
+    "avg_tmin": 16.0,
+    "cold_nights": 0,
+    "total_rain_mm": 68.8,
+    "rainy_days": 2,
+    "max_daily_rain_mm": 63.6,
+    "washout_window_days": 2,
+    "washout_rain_mm": 0,
+    "treatment_washout_risk": false,
+    "hourly_adult_score": 44.3,
+    "avg_hours_optimal": 7.1,
+    "avg_hours_suboptimal": 8.7,
+    "avg_hours_stress": 0.0,
+    "daily_hours_optimal": [
+      9,
+      6,
+      9,
+      6,
+      4,
+      9,
+      7
+    ],
+    "daily_hours_above_33": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "daily_hours_above_37": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "daily_hours_above_40": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "daily_hours_pupal_stress": [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "cons_days_above_33": 0,
+    "cons_days_above_37": 0,
+    "cons_days_above_40": 0,
+    "thermal_suppression": 0.0,
+    "pupal_stress_pct": 14.3,
+    "gdd_weekly": 80.8,
+    "score": 44.3
+  },
+  {
     "date": "2026-09-14",
     "ok": true,
     "avg_tmax": 29.0,
